@@ -9,13 +9,14 @@ import matplotlib.pyplot as plt
 import time
 from helper import rand_k_sparse_vec, matrix_sym_inner_prod, \
                    symp2Pauli, matrix_symp2Pauli, rand_k_local_Pauli, \
-                    many_random_indices, rand_k_indices, check_overlap_parities
+                   many_random_indices, rand_k_indices, check_overlap_parities, \
+                   diagonalize_commuting_Paulis
 
 def sample_a_Pauli(n, k, sampling_type):
     """
     Sample a Pauli according to type. See `type123_sampler` for details.
     
-    Input:
+    Params:
         * n (int): number of qubits.
         * k (int): locality parameter of the Paulis.
         * sampling_type (int): 1, 2, or 3
@@ -48,7 +49,7 @@ def type123_sampler(m, n, k, sampling_type):
     There is not really a natural/physical corresponding model.
     Locality guarantee: k.
 
-    Input:
+    Params:
         * m (int): number of Paulis to sample. Should be at least n and no more than around 2n to be reasonable.
         * n (int): number of qubits.
         * k (int): locality parameter of the Paulis.
@@ -109,7 +110,7 @@ def type4_sampler(m1, m2, n, k):
     If you do this, then with high probability the X's will form an independent basis of all X-type strings, 
     and there will not exist any Z-type string which commutes with them. 
 
-    Input:
+    Params:
         * m1 (int): number of X Paulis to sample.
         * m2 (int): number of Z Paulis to sample.
         * n (int): number of qubits.
@@ -160,7 +161,7 @@ def sample_commuting_Paulis(m, n, k, sampling_type=1, m1=-1, m2=-1):
     In each case, we sample a list of `m` `n`-qubit Paulis which are local, either k-local or 2k-local 
     depending on the model.
 
-    Input:
+    Params:
         * m (int): number of Paulis to sample. Should be at least n and no more than around 2n to be reasonable.
         * n (int): number of qubits.
         * k (int): locality parameter of the Paulis.
@@ -178,11 +179,12 @@ def sample_commuting_Paulis(m, n, k, sampling_type=1, m1=-1, m2=-1):
 
 def main(args):
     ROOT = args.save
-    save_data = not args.nosave
-    make_plot = not args.noplot
+    SAVE_DATA = not args.nosave
+    MAKE_PLOT = not args.noplot
+    DIAGONALIZE = args.diagonalize
     m = args.m; n = args.n; k = args.k
     m1 = args.m1; m2 = args.m2
-    num_trials = args.trials
+    NUM_TRIALS = args.trials
     if m == -1:
         m = int(1.5 * n)  # default choice of m
     sampling_type = args.type
@@ -193,34 +195,50 @@ def main(args):
     if sampling_type == 4:
         print(f"m1 = {m1}, m2 = {m2}, n = {n}, k = {k}")
         m = m1 + m2
-        iter_data = np.zeros((num_trials, m2))
-        IDENTIFIER = f"TYPE{sampling_type}_m1{m1}m2{m2}n{n}k{k}_t{num_trials}"
+        iter_data = np.zeros((NUM_TRIALS, m2))
+        IDENTIFIER = f"TYPE{sampling_type}_m1{m1}m2{m2}n{n}k{k}_t{NUM_TRIALS}"
     else:
         print(f"m = {m}, n = {n}, k = {k}")
-        iter_data = np.zeros((num_trials, m))
-        IDENTIFIER = f"TYPE{sampling_type}_m{m}n{n}k{k}_t{num_trials}"
+        iter_data = np.zeros((NUM_TRIALS, m))
+        IDENTIFIER = f"TYPE{sampling_type}_m{m}n{n}k{k}_t{NUM_TRIALS}"
         
-    data = np.zeros((num_trials, m, 2*n), dtype=int)
-    for trial in range(num_trials):
+    data = np.zeros((NUM_TRIALS, m, 2*n), dtype=np.uint8)
+
+    for trial in range(NUM_TRIALS):
         start = time.perf_counter()
         data[trial], iter_data[trial] = sample_commuting_Paulis(m, n, k, sampling_type=sampling_type, m1=m1, m2=m2)
         end = time.perf_counter()
         minutes, seconds = divmod(end - start, 60)
-        print(f"[Trial {trial}] Execution took {minutes} min {round(seconds, 5)} sec")
-    if save_data:
-        # Transpose before saving so data is num_trials x 2n x m as promised
-        np.save(f"{ROOT}/Commuting_{IDENTIFIER}.npz", np.transpose(data, (0, 2, 1)))
+        print(f"[Trial {trial}] Execution took {minutes} min {round(seconds, 4)} sec")
+
+    if SAVE_DATA or DIAGONALIZE:
+        # Transpose so data is num_trials x 2n x m as promised
+        data = np.transpose(data, (0, 2, 1))
+
+    if SAVE_DATA:
+        np.save(f"{ROOT}/Commuting_{IDENTIFIER}.npy", data)
+
+    if DIAGONALIZE:
+        start = time.perf_counter()
+        diags = [diagonalize_commuting_Paulis(data[i], m, n, inplace=False) for i in range(NUM_TRIALS)]
+        end = time.perf_counter()
+        minutes, seconds = divmod((end - start) / NUM_TRIALS, 60)
+        print(f"Diagonalization took {minutes} min {round(seconds, 4)} sec on average per trial")
+        diags = np.stack(diags, axis=0)
+
+        if SAVE_DATA:
+            np.save(f"{ROOT}/Diagonalized_{IDENTIFIER}.npy", data)
     
-    if make_plot:
+    if MAKE_PLOT:
         INDICES = np.arange(m2) if sampling_type == 4 else np.arange(m)
         plt.errorbar(INDICES, iter_data.mean(axis=0), yerr=iter_data.std(axis=0), fmt='none', 
                 ecolor='gray', alpha=0.5, capsize=3)
         plt.scatter(INDICES, iter_data.mean(axis=0), color='royalblue', alpha=1)
         plt.xlabel(f"Step number")
         plt.ylabel(f"Number of trials until success")
-        plt.title(rf"$m = ${m}, $n = ${n}, $k = ${k} ({num_trials} trials)")
+        plt.title(rf"$m = ${m}, $n = ${n}, $k = ${k} ({NUM_TRIALS} trials)")
         plt.savefig(f"{ROOT}/IterationsCommuting_{IDENTIFIER}.png")
-        np.save(f"{ROOT}/IterationsCommuting_{IDENTIFIER}.npz", iter_data)
+        np.save(f"{ROOT}/IterationsCommuting_{IDENTIFIER}.npy", iter_data)
 
 
 if __name__ == "__main__":
@@ -251,12 +269,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "--k", "-k",
         type=int,
-        default=5,
+        default=4,
     )
     parser.add_argument(
         "--trials",
         type=int,
-        default=100,
+        default=50,
         help="Number of instances you want to generate"
     )
     parser.add_argument(
@@ -281,6 +299,11 @@ if __name__ == "__main__":
         type=str,
         default=".",
         help="Directory in which data will be saved"
+    )
+    parser.add_argument(
+        "--diagonalize", '-d',
+        action="store_true",
+        help="Flag if you want to also diagonalize the Paulis"
     )
 
     args = parser.parse_args()

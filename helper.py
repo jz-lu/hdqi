@@ -19,7 +19,7 @@ def standard_Pauli_tableau(n, include_y=False):
     `include_y`. If True, then there are 3n columns. If False, there
     are 2n columns.
 
-    Input:
+    Params:
         * n (int): number of qubits.
         * include_y (bool): indicator on whether to include Y-type Paulis.
 
@@ -66,7 +66,7 @@ def symp2Pauli(x, n):
     """
     Return a sign-free Pauli string representation of the length 2`n` symplectic vector `x`.
 
-    Input:
+    Params:
         * n (int): number of qubits.
         * x (numpy.ndarray): binary vector of length 2n, symplectically representing a n-qubit Pauli string.
     
@@ -91,7 +91,7 @@ def matrix_symp2Pauli(M, n):
     Turns a list of m = M.shape[0] symplectic vectors into their Pauli strings all at once,
     by calling `symp2Pauli()`.
     
-    Input:
+    Params:
         * M (np.ndarray): m x 2n arrayof bits, where each row is a symplectic vector representing a Pauli
         * n (int): number of qubits
     
@@ -109,7 +109,7 @@ def sym_inner_prod(x, y, n):
     """
     Return the symplectic inner product, mod 2, of two 2`n`-vectors `x` and `y`
     
-    Input:
+    Params:
         * x (np.ndarray): binary vector of length 2n
         * y (np.adarray): binary vector of length 2n
         * n (int): number of qubits
@@ -125,7 +125,7 @@ def matrix_sym_inner_prod(M, x, n):
     Return the symplectic inner product between every row of M
     and x, as a column vector.
 
-    Input:
+    Params:
         * M: m x 2n binary matrix
         * x: 2n binary vector
     Return:
@@ -184,7 +184,7 @@ def check_symplectic_consistency(Paulis, m, n):
     """
     Verify that all columns of a 2n x m matrix `Paulis` are all symplectically orthogonal.
 
-    Input:
+    Params:
         * Paulis (np.ndarray): 2n x m binary matrix, each column is the symplectic representation of a n-qubit Pauli.
           This function expects that every pair of columns is symplectically orthogonal.
         * m (int): number of Paulis.
@@ -201,7 +201,7 @@ def apply_Clifford_gate(matrix, op, n, i, j=None, right=False):
     Apply the given Clifford operation to the matrix `matrix`.
     Return the transformed Pauli matrix.
 
-    Input:
+    Params:
         * matrix (np.ndarray): can either be a 2n x m matrix of Paulis in symplectic form, 
           or a 2n x 2n symplectic matrix representing a Clifford.
         * op (str): description of the operator. Choices are ['H', 'S', 'CX', 'CZ', 'SWAP'].
@@ -261,22 +261,26 @@ def apply_Clifford_gate(matrix, op, n, i, j=None, right=False):
     return matrix
 
 
-def apply_Clifford_circuit(clifford, Paulis, n):
+def apply_Clifford_circuit(clifford, Paulis, n, inplace=True):
     """
     Conjugate a Clifford circuit onto a list of Paulis in symplectic reprsentation.
 
-    Input: 
+    Params: 
         * clifford (list): list of tuples (gate, qubit(s)) that describe the Clifford, e.g.
           [('H', 12), ('CX', 1, 3)]. This describes a Clifford circuit acting from left to
           right, i.e. you first apply H, then CX.
         * Paulis (np.ndarray): 2n x m binary matrices representing m n-qubit Paulis 
           in symplectic form.
         * n (int): number of qubits.
+        * inplace (bool): apply the circuit in place if True or apply on a copy of `Paulis` if False.
     
     Returns:
-        * 2n x m binary matrix representing `Paulis` after transformation under conjugation
-          by the circuit given by `clifford`.
+        * None if `inplace`. Else, 2n x m binary matrix representing `Paulis` after transformation 
+          under conjugation by the circuit given by `clifford`.
     """
+    if not inplace:
+        Paulis = np.copy(Paulis)
+
     for gate in clifford:
         gatelen = len(gate) # should be 2 or 3
         if gatelen == 2:
@@ -288,7 +292,9 @@ def apply_Clifford_circuit(clifford, Paulis, n):
         else:
             raise SyntaxError(f"Gate should either be of form (op, i) or (op, i, j), but was {gate}")
         # assert check_symplectic_consistency(Paulis, Paulis.shape[1], n)
-    return Paulis
+    
+    if not inplace:
+        return Paulis
 
 
 def find_diagonalizing_Clifford(Paulis, m, n):
@@ -299,13 +305,13 @@ def find_diagonalizing_Clifford(Paulis, m, n):
     The actual output is not a symplectic matrix or unitary matrix describing the Clifford, 
     but rather a list of Clifford gates.
     
-    Input:
+    Params:
         * Paulis (numpy.ndarray): 2n x m binary matrices representing commuting Paulis in symplectic
           form. Assumes that all Paulis are commuting (i.e. columns are orthogonal in SIP).
         * m (int): number of Paulis.
         * n (int): number of qubits.
 
-    Returns: (clifford, diag_rep)
+    Returns:
         * clifford (list): list of tuples (gate, qubit(s)) that describe the Clifford, e.g.
           [('H', 12), ('CX', 1, 3)]. This describes a Clifford circuit acting from left to
           right, i.e. you first apply H, then CX.
@@ -313,7 +319,7 @@ def find_diagonalizing_Clifford(Paulis, m, n):
     Paulis = np.copy(Paulis) # `Paulis` will be modified in place, and we don't want to change the input so we make a copy
     circuit = [] # list of operators applied in the Clifford circuit
     
-    # assert check_symplectic_consistency(Paulis, m, n)
+    assert check_symplectic_consistency(Paulis, m, n)
 
     itr = 0 # number of independent columns we've looked at
     i = 0 # Column index
@@ -345,8 +351,11 @@ def find_diagonalizing_Clifford(Paulis, m, n):
         # upper left corner to any other row of in the top half with a 1 in the current column.
         # This zeros out all but the current element in top half of the current column.
         # Do the same for the bottom half, using S gates and CZ gates.
-        ones_cols_idxs = np.where(Paulis[:,i] == 1)[0][1:]
-        for j in ones_cols_idxs:
+        while True:
+            ones_cols_idxs = np.where(Paulis[:,i] == 1)[0]
+            if len(ones_cols_idxs) <= 1:
+                break
+            j = ones_cols_idxs[1]
             if j < n:
                 # Top half: use CX gates
                 circuit.append(('CX', itr, j))
@@ -354,8 +363,8 @@ def find_diagonalizing_Clifford(Paulis, m, n):
                 Paulis[itr+n] = (Paulis[j+n] + Paulis[itr+n]) % 2
                 # assert check_symplectic_consistency(Paulis, m, n)
             else:
-                # Bottom half: use S for index n and CZ for everything else
-                if j == n:
+                # Bottom half: use S for index itr + n and CZ for everything else
+                if j == itr + n:
                     circuit.append(('S', itr))
                     Paulis[itr+n] = (Paulis[itr] + Paulis[itr+n]) % 2
                     # assert check_symplectic_consistency(Paulis, m, n)
@@ -379,11 +388,34 @@ def find_diagonalizing_Clifford(Paulis, m, n):
         # assert np.all(Paulis[i+n] == 0), f"{itr}th row of bottom half should be 0, but is\n{Paulis[itr+n]}"
         itr += 1
         i += 1
-        # print(f"Iteration {i}:\n{Paulis}")
     
     assert np.all(Paulis[n:] == 0), f"Bottom half of matrix should be 0, but is actually\n{Paulis[n:]}"
 
     return circuit
+
+
+def diagonalize_commuting_Paulis(Paulis, m, n, inplace=True):
+    """
+    Diagonalize a list of commuting Paulis. Done in place by default.
+
+    Params:
+        * Paulis (np.ndarray): 2n x m list of Paulis in symplectic representation. This function
+          assumes that every pair of columns is symplectically orthogonal. Otherwise, the output
+          will be nonsense.
+        * m (int): number of Paulis.
+        * n (int): number of qubits.
+        * inplace (bool): flag on whether to diagonalize in place or not.
+    
+    Returns:
+        * None if `inplace`. Else, a 2n x m matrix representing the Pauli after diagonalization.
+          The last n rows will be zero.
+    """
+    clifford = find_diagonalizing_Clifford(Paulis, m, n)
+
+    if inplace:
+        apply_Clifford_circuit(clifford, Paulis, n, inplace=True)
+    else:
+        return apply_Clifford_circuit(clifford, Paulis, n, inplace=False)
 
 
 """
@@ -394,7 +426,7 @@ def rand_k_sparse_vec(n, k):
     """
     Generate a length-`n` bitstring which is random and `k`-sparse
 
-    Input:
+    Params:
         * n (int): length of bitstring/vector
         * k (int <= n): number of ones in the bitstring
     
@@ -411,7 +443,7 @@ def rand_k_indices(n, k):
     """
     Generates a list of k indices, sampled without replacement, out of n
     
-    Input:
+    Params:
         * n (int): cutoff for sampling, i.e. sampling space is S := {1, ..., n}
         * k (int <= n): number of numbers to sample
     
@@ -425,7 +457,7 @@ def rand_k_local_Pauli(n, k):
     """
     Generate a uniformly random Pauli of weight k
 
-    Input:
+    Params:
         * n (int): number of qubits
         * k (int <= n): support of Pauli
     
@@ -477,7 +509,7 @@ def toric_code_symplectic_matrix(L):
     Make the stabilizer tableau (including 2 redundancies) in symplectic form of the LxL toric code.
     Useful for testing functions on commuting Paulis.
 
-    Input:
+    Params:
         * L (int): side length of torus.
 
     Returns:
@@ -558,15 +590,21 @@ if __name__ == "__main__":
     """
     Use this space to build and run any pertinent test cases
     """
-    L = 20
-    n = 2*L**2
-    m = n
-    print(f"Test case: n = {n}, m = {m}")
+    # L = 2
+    # n = 2*L**2
+    # m = n
+    # print(f"Test case: n = {n}, m = {m}")
 
-    M = toric_code_symplectic_matrix(L)
+    # M = toric_code_symplectic_matrix(L)
+    # clifford = find_diagonalizing_Clifford(M, m, n)
+    # apply_Clifford_circuit(clifford, M, n)
+
+    m = 8
+    n = 5
+    M = np.load("Commuting_TYPE1_m8n5k2_t1.npz.npy")[0]
+    print(f"START:\n{M}")
     clifford = find_diagonalizing_Clifford(M, m, n)
-    D = apply_Clifford_circuit(clifford, M, n)
-    # print(D)
+    apply_Clifford_circuit(clifford, M, n)
 
     # m = 4
     # n = 5
@@ -577,6 +615,6 @@ if __name__ == "__main__":
     # D = apply_Clifford_circuit(clifford, M, n)
     # print(D)
 
-    assert np.all(D[n:] == 0), f"Failed to diagonalize matrix:\n{M}"
+    assert np.all(M[n:] == 0), f"Failed to diagonalize matrix:\n{M}"
     print("Test case passed successfully")
     exit(0)
