@@ -12,6 +12,30 @@ import numpy as np
 SECTION I: Manipulating symplectic vectors and matrices.
 """
 
+def standard_Pauli_tableau(n, include_y=False):
+    """
+    Generate a symplectic matrix representing the standard Paulis.
+    There will always be 2n rows, and the number of columns depends on
+    `include_y`. If True, then there are 3n columns. If False, there
+    are 2n columns.
+
+    Input:
+        * n (int): number of qubits.
+        * include_y (bool): indicator on whether to include Y-type Paulis.
+
+    Returns:
+        * Symplectic matrix (np.ndarray) where each columns represents a standard
+          Pauli. If `include_y`, one column for each X_i, Z_i, Y_i. Otherwise, 
+          one column for each X_i and Z_i.
+    """
+    tableau = np.eye(2*n, dtype=np.uint8) # X's and Z's only
+    if include_y:
+        eye = np.eye(n, dtype=np.uint8)
+        ys = np.vstack([eye, eye])
+        return np.hstack([tableau, ys])
+    else:
+        return tableau
+
 def pauli_to_sym(pauli_str):
     """
     Convert a string of Pauli operators to binary vector (x|z)
@@ -148,64 +172,69 @@ def check_overlap_parities(X_list, Z_candidate):
     """
     return np.all(list_overlap_parities(X_list, Z_candidate) == 0)
 
-def apply_Clifford(Paulis, op, n, i, j=None, right=False):
+def apply_Clifford_gate(matrix, op, n, i, j=None, right=False):
     """
-    Apply the given Clifford operation to the Pauli matrix `Paulis`.
+    Apply the given Clifford operation to the matrix `matrix`.
     Return the transformed Pauli matrix.
 
     Input:
-        * Paulis (np.ndarray): 2n x m list of Paulis in symplectic form.
+        * matrix (np.ndarray): can either be a 2n x m matrix of Paulis in symplectic form, 
+          or a 2n x 2n symplectic matrix representing a Clifford.
         * op (str): description of the operator. Choices are ['H', 'S', 'CX', 'CZ', 'SWAP'].
         * n (int): number of qubits.
         * i (int): index of first qubit operator acts on (i < n).
         * j (int, optional): if `op` is a 2-qubit operator, specify the second qubit (j < n).
-        * right (bool): flag on whether to act on the right or the left.
+        * right (bool): flag on whether to act on the right or the left. If acting on the right, 
+          the input matrix must be a Clifford. The operation is otherwise ill-defined.
     
     Returns:
         * 2n x m np.ndarray representing the transformed version of `Paulis`
     """
     if right:
+        assert matrix.shape[1] == 2*n, f"You cannot act on the right unless the input matrix is a 2n x 2n Clifford"
         if op == 'H':
             # Swap columns i and i+n
-            Paulis[:, [i, i+n]] = Paulis[:, [i+n, i]]
+            matrix[:, [i, i+n]] = matrix[:, [i+n, i]]
         elif op == 'S':
             # Adds column i+n to column i
-            Paulis[:, i] = (Paulis[:, i] + Paulis[:, i+n]) % 2
+            matrix[:, i] = (matrix[:, i] + matrix[:, i+n]) % 2
         elif op == 'CX':
             # Adds column j to column i, and column i+n to column j+n
-            Paulis[:, i] = (Paulis[:, i] + Paulis[:, j]) % 2
-            Paulis[:, j+n] = (Paulis[:, j+n] + Paulis[:, i+n]) % 2
+            matrix[:, i] = (matrix[:, i] + matrix[:, j]) % 2
+            matrix[:, j+n] = (matrix[:, j+n] + matrix[:, i+n]) % 2
         elif op == 'CZ':
             # Adds column j+n to column i and add column i+n to column j
-            Paulis[:, i] = (Paulis[:, i] + Paulis[:, j+n]) % 2
-            Paulis[:, j] = (Paulis[:, j] + Paulis[:, i+n]) % 2
+            matrix[:, i] = (matrix[:, i] + matrix[:, j+n]) % 2
+            matrix[:, j] = (matrix[:, j] + matrix[:, i+n]) % 2
         elif op == 'SWAP':
             # Swap columns i and j, and swap columns i+n and j+n
-            Paulis[:, [i, j]] = Paulis[:, [j, i]]
-            Paulis[:, [i+n, j+n]] = Paulis[:, [j+n, i+n]]
+            matrix[:, [i, j]] = matrix[:, [j, i]]
+            matrix[:, [i+n, j+n]] = matrix[:, [j+n, i+n]]
         else:
             raise ValueError(f"Specified operator {op} is not a valid Clifford. Choices = ['H', 'S', 'CX', 'CZ', 'SWAP'].")
     else:
         if op == 'H':
             # Swap rows i and i+n
-            Paulis[[i, i+n]] = Paulis[[i+n, i]]
+            matrix[[i, i+n]] = matrix[[i+n, i]]
         elif op == 'S':
             # Adds row i to row i+n
-            Paulis[i+n] = (Paulis[i] + Paulis[i+n]) % 2
+            matrix[i+n] = (matrix[i] + matrix[i+n]) % 2
         elif op == 'CX':
             # Adds row i to row j, and adds row j+n to row i+n
-            Paulis[j] = (Paulis[i] + Paulis[j]) % 2
-            Paulis[i+n] = (Paulis[j+n] + Paulis[i+n]) % 2
+            matrix[j] = (matrix[i] + matrix[j]) % 2
+            matrix[i+n] = (matrix[j+n] + matrix[i+n]) % 2
         elif op == 'CZ':
             # Adds row i to row j+n and add row j to row i+n
-            Paulis[j+n] = (Paulis[i] + Paulis[j+n]) % 2
-            Paulis[i+n] = (Paulis[j] + Paulis[i+n]) % 2
+            matrix[j+n] = (matrix[i] + matrix[j+n]) % 2
+            matrix[i+n] = (matrix[j] + matrix[i+n]) % 2
         elif op == 'SWAP':
             # Swap rows i and j, and swap rows i+n and j+n
-            Paulis[[i, j]] = Paulis[[j, i]]
-            Paulis[[i+n, j+n]] = Paulis[[j+n, i+n]]
+            matrix[[i, j]] = matrix[[j, i]]
+            matrix[[i+n, j+n]] = matrix[[j+n, i+n]]
         else:
             raise ValueError(f"Specified operator {op} is not a valid Clifford. Choices = ['H', 'S', 'CX', 'CZ', 'SWAP'].")
+    
+    return matrix
 
 def check_symplectic_consistency(Paulis, m, n):
     """
@@ -222,11 +251,13 @@ def check_symplectic_consistency(Paulis, m, n):
     """
     return np.all([sym_inner_prod(Paulis[:,i], Paulis[:,j], n) == 0 for i in range(m) for j in range(m)])
 
-def symplectic_diagonalize(Paulis, m, n):
+def find_diagonalizing_Clifford(Paulis, m, n):
     """
     Find a symplectic matrix (a Clifford) which diagonalizes a list of commuting Paulis.
     The diagonalization is performed by Gottesman's algorithm (see "Suriving as a quantum
     computer in a classical world" by D. Gottesman, Chapter 6.)
+    The actual output is not a symplectic matrix or unitary matrix describing the Clifford, 
+    but rather a list of Clifford gates.
     
     Input:
         * Paulis (numpy.ndarray): 2n x m binary matrices representing commuting Paulis in symplectic
@@ -235,13 +266,11 @@ def symplectic_diagonalize(Paulis, m, n):
         * n (int): number of qubits.
 
     Returns: (clifford, diag_rep)
-        * clifford (np.ndarray): 2n x 2n matrix which when acting on Paulis from the right, outputs a
-          matrix which is 2n x m such that the last n rows are zero.
-        * diag_rep (np.ndarray): m x n matrix which is the diagonal representation of `Paulis`, with the 
-          m x n zero matrix on the right half removed.
+        * clifford (list): list of tuples (gate, qubit(s)) that describe the Clifford, e.g.
+          [('H', 12), ('CX', 1, 3)]. This describes a Clifford circuit acting from left to
+          right, i.e. you first apply H, then CX.
     """
-    left_ops = [] # operators applied to the left, pushed in reverse and reversed at the end
-    containments = [set([i]) for i in range(m)]
+    circuit = [] # list of operators applied in the Clifford circuit
     
     # assert check_symplectic_consistency(Paulis, m, n)
 
@@ -262,11 +291,11 @@ def symplectic_diagonalize(Paulis, m, n):
             if idx >= n:
                 # Apply H on qubit (idx-n)
                 idx -= n
-                left_ops.append(('H', idx))
+                circuit.append(('H', idx))
                 Paulis[[idx, idx+n]] = Paulis[[idx+n, idx]]
                 # assert check_symplectic_consistency(Paulis, m, n)
             # Apply SWAP on index and 0
-            left_ops.append(('SWAP', itr, idx))
+            circuit.append(('SWAP', itr, idx))
             Paulis[[idx, itr]] = Paulis[[itr, idx]]
             Paulis[[idx+n, itr+n]] = Paulis[[itr+n, idx+n]]
             # assert check_symplectic_consistency(Paulis, m, n)
@@ -279,31 +308,29 @@ def symplectic_diagonalize(Paulis, m, n):
         for j in ones_cols_idxs:
             if j < n:
                 # Top half: use CX gates
-                left_ops.append(('CX', itr, j))
+                circuit.append(('CX', itr, j))
                 Paulis[j] = (Paulis[itr] + Paulis[j]) % 2
                 Paulis[itr+n] = (Paulis[j+n] + Paulis[itr+n]) % 2
                 # assert check_symplectic_consistency(Paulis, m, n)
             else:
                 # Bottom half: use S for index n and CZ for everything else
                 if j == n:
-                    left_ops.append(('S', itr))
+                    circuit.append(('S', itr))
                     Paulis[itr+n] = (Paulis[itr] + Paulis[itr+n]) % 2
                     # assert check_symplectic_consistency(Paulis, m, n)
                 else:
                     idx = j - n
-                    left_ops.append(('CZ', itr, idx))
+                    circuit.append(('CZ', itr, idx))
                     Paulis[idx+n] = (Paulis[itr] + Paulis[idx+n]) % 2
                     Paulis[itr+n] = (Paulis[idx] + Paulis[itr+n]) % 2
                     # assert check_symplectic_consistency(Paulis, m, n)
 
         # Do row reduction by multiplying other stabilizers by the first 
         # stabilizer if the stabilizer has a 1 in its first entry. This zeros out
-        # the first row except for the first entry. As we do this, we keep track of
-        # who got multiplied by what; we will need this information later.
+        # the first row except for the first entry.
         ones_rows_idxs = np.where(Paulis[itr] == 1)[0][1:]
         for j in ones_rows_idxs:
             Paulis[:,j] = (Paulis[:,i] + Paulis[:,j]) % 2
-            containments[j].symmetric_difference_update({i}) # track that we added stabilizer itr to stabilizer j
             # assert check_symplectic_consistency(Paulis, m, n)
 
         # At this point, we should find that the first row of the bottom half is also zero,
@@ -314,6 +341,34 @@ def symplectic_diagonalize(Paulis, m, n):
     
     assert np.all(Paulis[n:] == 0), f"Bottom half of matrix should be 0, but is actually\n{Paulis[n:]}"
 
+    return circuit
+
+def apply_Clifford_circuit(clifford, Paulis, n):
+    """
+    Conjugate a Clifford circuit onto a list of Paulis in symplectic reprsentation.
+
+    Input: 
+        * clifford (list): list of tuples (gate, qubit(s)) that describe the Clifford, e.g.
+          [('H', 12), ('CX', 1, 3)]. This describes a Clifford circuit acting from left to
+          right, i.e. you first apply H, then CX.
+        * Paulis (np.ndarray): 2n x m binary matrices representing m n-qubit Paulis 
+          in symplectic form.
+        * n (int): number of qubits.
+    
+    Returns:
+        * 2n x m binary matrix representing `Paulis` after transformation under conjugation
+          by the circuit given by `clifford`.
+    """
+    for gate in clifford:
+        gatelen = len(gate) # should be 2 or 3
+        if gatelen == 2:
+            op, qubit = gate
+            Paulis = apply_Clifford_gate(Paulis, op, n, qubit)
+        elif gatelen == 3:
+            op, q1, q2 = gate
+            Paulis = apply_Clifford_gate(Paulis, op, n, q1, q2)
+        else:
+            raise SyntaxError(f"Gate should either be of form (op, i) or (op, i, j), but was {gate}")
     return Paulis
 
 """
