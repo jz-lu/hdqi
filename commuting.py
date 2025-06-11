@@ -76,7 +76,12 @@ def type123_sampler(m, n, k, sampling_type):
     # Count the number of iterations it took to find each next commuting Pauli
     num_iters = np.zeros(m)
 
+    start = time.perf_counter()
     while counter < m:
+        # end = time.monotonic()
+        # minutes, seconds = divmod(end - start, 60)
+        # start = end
+        # print(f"Progress: {counter}/{m}. Time taken = {minutes} min {round(seconds, 4)} sec")
         loop_ctr = 1
         found = False
 
@@ -104,6 +109,7 @@ def type123_sampler(m, n, k, sampling_type):
             else: # else, add 1 to the rejection loop counter and try again
                 loop_ctr += 1
         
+        # print(f"loop ctr = {loop_ctr}")
     return Paulis, num_iters
 
 def type4_sampler(m1, m2, n, k):
@@ -148,7 +154,7 @@ def type4_sampler(m1, m2, n, k):
             if local_counter % scale == 0:
                 excess_factor = local_counter // scale
                 print(f"[Iteration {i}, attempt {local_counter}] WARNING: Excess factor reached {excess_factor}")
-                if excess_factor > 1e3:
+                if excess_factor > 5:
                     raise TimeoutError("Too slow, better luck next time :(")
                 
         num_iters[i] = local_counter
@@ -183,6 +189,7 @@ def sample_commuting_Paulis(m, n, k, sampling_type=1, m1=-1, m2=-1):
         return type123_sampler(m, n, k, sampling_type=sampling_type)
 
 def main(args):
+    KEY = None if args.key == -1 else args.key
     ROOT = args.save
     SAVE_DATA = not args.nosave
     MAKE_PLOT = not args.noplot
@@ -201,13 +208,13 @@ def main(args):
         print(f"m1 = {m1}, m2 = {m2}, n = {n}, k = {k}")
         m = m1 + m2
         iter_data = np.zeros((NUM_TRIALS, m2))
-        IDENTIFIER = generate_identifier(m, n, k, NUM_TRIALS, sampling_type=sampling_type, m1=m1, m2=m2)
+        IDENTIFIER = generate_identifier(m, n, k, NUM_TRIALS, sampling_type=sampling_type, m1=m1, m2=m2, key=KEY)
     else:
         print(f"m = {m}, n = {n}, k = {k}")
         iter_data = np.zeros((NUM_TRIALS, m))
-        IDENTIFIER = generate_identifier(m, n, k, NUM_TRIALS, sampling_type=sampling_type)
+        IDENTIFIER = generate_identifier(m, n, k, NUM_TRIALS, sampling_type=sampling_type, key=KEY)
         
-    data = np.zeros((NUM_TRIALS, m, 2*n), dtype=np.uint8)
+    data = np.zeros((NUM_TRIALS, m, 2*n), dtype=np.int8)
 
     for trial in range(NUM_TRIALS):
         start = time.perf_counter()
@@ -245,7 +252,7 @@ def main(args):
 
         if SAVE_DATA:
             # Diagonal data is for classical optimization algorithms, which want it in m x n form.
-            np.save(f"{ROOT}/{DIAG_FILE_PREFIX}_{IDENTIFIER}.npy", np.transpose(data, axes=(0, 2, 1)))
+            np.save(f"{ROOT}/{DIAG_FILE_PREFIX}_{IDENTIFIER}.npy", np.transpose(diags, axes=(0, 2, 1)))
 
             # We want move data to have index structure (trial, move, Pauli), so transpose the above.
             np.save(f"{ROOT}/{MOVES_FILE_PREFIX}_{IDENTIFIER}.npy", np.transpose(moves, axes=(0, 2, 1)))
@@ -326,6 +333,12 @@ if __name__ == "__main__":
         "--diagonalize", '-d',
         action="store_true",
         help="Flag if you want to also diagonalize the Paulis"
+    )
+    parser.add_argument(
+        "--key",
+        type=int,
+        default=-1,
+        help="High-performance compute indexing key"
     )
 
     args = parser.parse_args()

@@ -9,7 +9,8 @@ from random import randint
 import numpy as np
 import argparse
 import time
-from constants import generate_identifier, DIAG_FILE_PREFIX, MOVES_FILE_PREFIX
+from constants import generate_identifier, DIAG_FILE_PREFIX, MOVES_FILE_PREFIX, \
+                      generate_classical_identifier, CLASSICAL_FILE_PREFIX
 
 
 def find_starting_temp(m, prob):
@@ -67,10 +68,11 @@ class Max_XOR_SAT_Annealer(Annealer):
         For max-XOR-SAT, the energy function is g(x) = -f(x) = #UNSAT - #SAT.
         We implement it by first calculating t = Bx + v (mod 2).
         Then t_i = 0 if SAT and 1 if UNSAT. So we map t -> 2t - 1 so
-        that now t_i = 1 if UNSAT and -1 if SAT. Then we return \sum_i t_i = g(x).
+        that now t_i = 1 if UNSAT and -1 if SAT. Then we return sum_i t_i = g(x).
         """
         diff = np.mod(np.mod(self.clauses @ self.state, 2) + self.target, 2) # |Bx - v|
-        return np.sum(2*diff - 1)
+        g = np.sum(2*diff - 1)
+        return g
 
 
 def run_annealer(clauses, initial_state, target, \
@@ -101,6 +103,7 @@ def run_annealer(clauses, initial_state, target, \
     annealer = Max_XOR_SAT_Annealer(initial_state, clauses, target, move_space, num_moves)
     annealer.steps = num_steps
     annealer.Tmin, annealer.Tmax = Tmin, Tmax
+    annealer.updates = 100   # Number of updates (by default an update prints to stdout)
     if auto:
         auto_schedule = annealer.auto(minutes=wait_time) 
         annealer.set_schedule(auto_schedule)
@@ -116,30 +119,36 @@ def main(args):
     m = args.numclauses
     n = args.size
     k = args.locality
-    NUM_TRIALS = args.numtrials
+    CLASSICAL = args.classical
+    NUM_TRIALS = args.trials
     ROOT = args.root
-    TYPE = args.type
-    print(f"Executing tyoe {TYPE} SA with {'auto' if AUTO else 'manual'} scheduling.")
+    TYPE = 1 if CLASSICAL else args.type 
     AUTO = args.auto
     WAIT_TIME = args.waittime
+    print(f"[{'CLASSICAL' if CLASSICAL else 'COMMUTING'}] Executing tyoe {TYPE} SA with {'auto' if AUTO else 'manual'} scheduling.")
 
     # Import file of instances (assume they are already generated)
     IDENTIFIER = generate_identifier(m, n, k, NUM_TRIALS, sampling_type=1)
+    if CLASSICAL:
+        IDENTIFIER = generate_classical_identifier(m, n, k, NUM_TRIALS)
     INSTANCES = None
     MOVES = None
-    LOCAL_MOVE_SPACE = np.eye(n, dtype=np.uint8)
+    LOCAL_MOVE_SPACE = np.eye(n, dtype=np.int8)
     NUM_STEPS = 200_000 # kind of arbitrary
 
     try:
-        INSTANCES = np.load(f"{ROOT}/{DIAG_FILE_PREFIX}_{IDENTIFIER}.npy")
-        MOVES = np.load(f"{ROOT}/{MOVES_FILE_PREFIX}_{IDENTIFIER}.npy")
+        if CLASSICAL:
+            INSTANCES = np.load(f"{ROOT}/{CLASSICAL_FILE_PREFIX}_{IDENTIFIER}.npy")
+        else:
+            INSTANCES = np.load(f"{ROOT}/{DIAG_FILE_PREFIX}_{IDENTIFIER}.npy")
+            MOVES = np.load(f"{ROOT}/{MOVES_FILE_PREFIX}_{IDENTIFIER}.npy")
+            assert MOVES.shape == (NUM_TRIALS, 3*n, n), f"Expected MOVES shape to be {(NUM_TRIALS, 3*n, n)} but got {MOVES.shape}"
     except Exception as e:
         print(e)
         print("======= Hint =======")
         print(f"No generated instances of m = {m}, n = {n}, k = {k}, t = {NUM_TRIALS} found in {ROOT}.")
         print("You must generate instances before you can run algorithms on them.")
     assert INSTANCES.shape == (NUM_TRIALS, m, n), f"Expected INSTANCES shape to be {(NUM_TRIALS, m, n)} but got {INSTANCES.shape}"
-    assert MOVES.shape == (NUM_TRIALS, 3*n, n), f"Expected MOVES shape to be {(NUM_TRIALS, 3*n, n)} but got {MOVES.shape}"
 
     # Write down the starting and ending temperatures for annealing
     Tmin = 1e-2
@@ -149,7 +158,7 @@ def main(args):
 
     # Run the annealing on each trial
     for trial in range(NUM_TRIALS):
-        print(f"STARTING TRIAL {trial}...")
+        print(f"STARTING TRIAL {trial}...\n")
         CLAUSES = INSTANCES[trial] 
         MOVE_SPACE = None
 
@@ -162,8 +171,8 @@ def main(args):
         else:
             raise ValueError(f"Invalid TYPE = {TYPE}")
         
-        initial_state = np.random.randint(0, 2, size=n, dtype=np.uint8) # random start
-        target = np.random.randint(0, 2, size=m, dtype=np.uint8) # random target
+        initial_state = np.random.randint(0, 2, size=n, dtype=np.int8) # random start
+        target = np.random.randint(0, 2, size=m, dtype=np.int8) # random target
         NUM_MOVES = MOVE_SPACE.shape[0]
 
         start = time.perf_counter()
@@ -172,15 +181,15 @@ def main(args):
                  NUM_STEPS, return_solution=False, auto=AUTO, wait_time=WAIT_TIME)
         end = time.perf_counter()
         minutes, seconds = divmod((end - start) / NUM_TRIALS, 60)
-        print(f"[Trial {trial}] SA took {minutes} min {round(seconds, 4)}")
+        print(f"[Trial {trial}] SA took {minutes} min {round(seconds, 4)}\n")
         
         # `energy`` is #UNSAT - #SAT. Proportion satisfied is #SAT / m.
         # We compute this using #UNSAT + #SAT = m, so #SAT = (m - `energy`)/2
         ratios[trial] = (m - energy) / (2 * m)
-        print(f"[Trial {trial}] Ratios:\n{ratios}")
+        print(f"[Trial {trial}] Ratio: {ratios[trial]}\n")
     
     np.save(f"SA_TYPE{TYPE}_{IDENTIFIER}.npy", ratios)
-    print(f"Average ratio: {np.mean(ratios)}")
+    print(f"Average ratio: {np.mean(ratios)}\n")
 
 
 if __name__ == "__main__":
@@ -215,7 +224,7 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--numtrials", "-t",
+        "--trials", "-t",
         type=int,
         help="Number of trials"
     )
@@ -225,6 +234,12 @@ if __name__ == "__main__":
         type=str,
         help="Import file directory",
         default='.'
+    )
+
+    parser.add_argument(
+        "--classical",
+        action="store_true",
+        help="Import and study classical data instead of quantum",
     )
 
     parser.add_argument(

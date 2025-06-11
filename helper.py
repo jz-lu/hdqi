@@ -28,9 +28,9 @@ def standard_Pauli_tableau(n, include_y=False):
           Pauli. If `include_y`, one column for each X_i, Z_i, Y_i. Otherwise, 
           one column for each X_i and Z_i.
     """
-    tableau = np.eye(2*n, dtype=np.uint8) # X's and Z's only
+    tableau = np.eye(2*n, dtype=np.int8) # X's and Z's only
     if include_y:
-        eye = np.eye(n, dtype=np.uint8)
+        eye = np.eye(n, dtype=np.int8)
         ys = np.vstack([eye, eye])
         return np.hstack([tableau, ys])
     else:
@@ -59,7 +59,7 @@ def pauli_to_sym(pauli_str):
             z.append(1)
         else:
             raise ValueError(f"Invalid Pauli operator: {p}")
-    return np.array(x + z, dtype=np.uint8)  # Concatenate X | Z parts
+    return np.array(x + z, dtype=np.int8)  # Concatenate X | Z parts
 
 
 def symp2Pauli(x, n):
@@ -472,9 +472,13 @@ def transform_standard_Paulis(clifford, n, inverse=False, include_y=False):
           (X_1, ..., X_n, Z_1, ..., Z_n).
     """
     Paulis = standard_Pauli_tableau(n, include_y=include_y)
+    # for i in range(Paulis.shape[-1]):
+    #     print(Paulis[:,i])
     if inverse:
         inverse_Clifford_circuit(clifford, inplace=True)
     apply_Clifford_circuit(clifford, Paulis, n, inplace=True)
+    # for i in range(Paulis.shape[-1]):
+    #     print(Paulis[:,i])
     return Paulis
 
 
@@ -497,6 +501,21 @@ def rand_k_sparse_vec(n, k):
     indices = np.random.choice(n, size=k, replace=False)
     bits[indices] = 1
     return bits
+
+def rand_k_sparse_matrix(m, n, k):
+    """
+    Generate a m x n binary matrix which is random and `k`-sparse, i.e. every column has 
+    weight k.
+
+    Params:
+        * m (int): number of rows
+        * n (int): length of bitstring/vector
+        * k (int <= n): number of ones in the bitstring
+    
+    Returns:
+        * random m x n matrix represented as a numpy.ndarray with k 1's and n-k 0's in each column.
+    """
+    return np.stack([rand_k_sparse_vec(n, k) for _ in range(m)], axis=0)
 
 
 def rand_k_indices(n, k):
