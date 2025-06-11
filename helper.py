@@ -222,6 +222,9 @@ def apply_Clifford_gate(matrix, op, n, i, j=None, right=False):
         elif op == 'S':
             # Adds column i+n to column i
             matrix[:, i] = (matrix[:, i] + matrix[:, i+n]) % 2
+        elif op == 'Sdag':
+            # Sdag == S in symplectic form
+            matrix[:, i] = apply_Clifford_gate(matrix, 'S', n, i, j=None, right=True)
         elif op == 'CX':
             # Adds column j to column i, and column i+n to column j+n
             matrix[:, i] = (matrix[:, i] + matrix[:, j]) % 2
@@ -243,6 +246,9 @@ def apply_Clifford_gate(matrix, op, n, i, j=None, right=False):
         elif op == 'S':
             # Adds row i to row i+n
             matrix[i+n] = (matrix[i] + matrix[i+n]) % 2
+        elif op == 'Sdag':
+            # Sdag == S in symplectic form
+            matrix[:, i] = apply_Clifford_gate(matrix, 'S', n, i, j=None, right=False)
         elif op == 'CX':
             # Adds row i to row j, and adds row j+n to row i+n
             matrix[j] = (matrix[i] + matrix[j]) % 2
@@ -295,6 +301,35 @@ def apply_Clifford_circuit(clifford, Paulis, n, inplace=True):
     
     if not inplace:
         return Paulis
+    else:
+        return
+
+
+def inverse_Clifford_circuit(clifford, inplace=False):
+    """
+    Find a description of the inverse circuit of a given Clifford circuit.
+    Because everything is in symplectic representation, this is actually
+    equivalent to just reversing the circuit. This is because our gate
+    set is {H, CX, CZ, SWAP, S}. All but S are involutions as gates. The
+    only difference between S and S^dagger on Pauli conjugation is signs,
+    which we mod out by in the symplectic representation. So S is 
+    equivalently its own inverse too.
+
+    Params:
+        * clifford (list): list of tuples (gate, qubit(s)) that describe the Clifford, e.g.
+          [('H', 12), ('CX', 1, 3)]. This describes a Clifford circuit acting from left to
+          right, i.e. you first apply H, then CX.
+        * inplace (bool): flag bit on whether or not to invert the Clifford circuit in place.
+          
+    Returns:
+        * If `inplace`, then None. Otherwise, a list of tuples which describe in inverse Clifford 
+          circuit as it acts on sign-free Paulis.
+    """
+    if inplace:
+        clifford.reverse()
+        return
+    else:
+        return clifford[::-1]
 
 
 def find_diagonalizing_Clifford(Paulis, m, n):
@@ -416,6 +451,31 @@ def diagonalize_commuting_Paulis(Paulis, m, n, inplace=True):
         apply_Clifford_circuit(clifford, Paulis, n, inplace=True)
     else:
         return apply_Clifford_circuit(clifford, Paulis, n, inplace=False)
+
+
+def transform_standard_Paulis(clifford, n, inverse=False, include_y=False):
+    """
+    Transform the standard Paulis (X_i, Z_i, maybe Y_i) under a Clifford circuit.
+
+    Params:
+        * clifford (list): list of tuples (gate, qubit(s)) that describe the Clifford, e.g.
+          [('H', 12), ('CX', 1, 3)]. This describes a Clifford circuit acting from left to
+          right, i.e. you first apply H, then CX.
+        * n (int): number of qubits.
+        * inverse (bool): if true, then the inverse operation to `clifford` will be applied
+        * include_y (bool): if true, then the Y_i's will also be transformed.
+    
+    Returns:
+        * 2n x m binary matrix where each column is the symplectic representation of a n-qubit Pauli
+          after being transformed by `clifford`. If `include_y`, `m` = 3n and the Paulis are
+          (X_1, ..., X_n, Z_1, ..., Z_n, Y_1, ..., Y_n). Otherwise, `m` = 2n and the Paulis are
+          (X_1, ..., X_n, Z_1, ..., Z_n).
+    """
+    Paulis = standard_Pauli_tableau(n, include_y=include_y)
+    if inverse:
+        inverse_Clifford_circuit(clifford, inplace=True)
+    apply_Clifford_circuit(clifford, Paulis, n, inplace=True)
+    return Paulis
 
 
 """

@@ -7,10 +7,15 @@ import numpy as np
 import argparse
 import matplotlib.pyplot as plt
 import time
+from constants import COMMUTE_FILE_PREFIX, DIAG_FILE_PREFIX, \
+                      ITRPLT_FILE_PREFIX, ITRDATA_FILE_PREFIX, \
+                      MOVES_FILE_PREFIX, \
+                      generate_identifier
 from helper import rand_k_sparse_vec, matrix_sym_inner_prod, \
                    symp2Pauli, matrix_symp2Pauli, rand_k_local_Pauli, \
                    many_random_indices, rand_k_indices, check_overlap_parities, \
-                   diagonalize_commuting_Paulis
+                   find_diagonalizing_Clifford, apply_Clifford_circuit, \
+                   transform_standard_Paulis
 
 def sample_a_Pauli(n, k, sampling_type):
     """
@@ -196,11 +201,11 @@ def main(args):
         print(f"m1 = {m1}, m2 = {m2}, n = {n}, k = {k}")
         m = m1 + m2
         iter_data = np.zeros((NUM_TRIALS, m2))
-        IDENTIFIER = f"TYPE{sampling_type}_m1{m1}m2{m2}n{n}k{k}_t{NUM_TRIALS}"
+        IDENTIFIER = generate_identifier(m, n, k, NUM_TRIALS, sampling_type=sampling_type, m1=m1, m2=m2)
     else:
         print(f"m = {m}, n = {n}, k = {k}")
         iter_data = np.zeros((NUM_TRIALS, m))
-        IDENTIFIER = f"TYPE{sampling_type}_m{m}n{n}k{k}_t{NUM_TRIALS}"
+        IDENTIFIER = generate_identifier(m, n, k, NUM_TRIALS, sampling_type=sampling_type)
         
     data = np.zeros((NUM_TRIALS, m, 2*n), dtype=np.uint8)
 
@@ -216,18 +221,35 @@ def main(args):
         data = np.transpose(data, (0, 2, 1))
 
     if SAVE_DATA:
-        np.save(f"{ROOT}/Commuting_{IDENTIFIER}.npy", data)
+        np.save(f"{ROOT}/{COMMUTE_FILE_PREFIX}_{IDENTIFIER}.npy", data)
 
     if DIAGONALIZE:
+        # Produce the diagonal representations of each instance
         start = time.perf_counter()
-        diags = [diagonalize_commuting_Paulis(data[i], m, n, inplace=False) for i in range(NUM_TRIALS)]
+        cliffords = [find_diagonalizing_Clifford(data[trial], m, n) for trial in range(NUM_TRIALS)]
+        diags = [apply_Clifford_circuit(cliffords[trial], data[trial], n, inplace=False) for trial in range(NUM_TRIALS)]
         end = time.perf_counter()
         minutes, seconds = divmod((end - start) / NUM_TRIALS, 60)
         print(f"Diagonalization took {minutes} min {round(seconds, 4)} sec on average per trial")
-        diags = np.stack(diags, axis=0)
+        diags = np.stack(diags, axis=0)[:,:n,:] # cut off the zero part of each matrix
+        assert diags.shape == (NUM_TRIALS, n, m)
+
+        # Find the Pauli moves of each diagonal representation
+        # Our diagonalization convention turns everything into X-type Paulis.
+        # The eigenstate of the transformed Paulis are tensor products of |+> and |->,
+        # and these are only affected by the Z part of the Pauli moves. So we cut off the 
+        # X part. This way, both the diagonalized matrix and the moves are of length n instead of 2n.
+        moves = np.stack([transform_standard_Paulis(cliff, n, inverse=True, include_y=True) for cliff in cliffords], axis=0)
+        assert moves.shape == (NUM_TRIALS, 2*n, 3*n)
+        moves = moves[:,:n,:]
 
         if SAVE_DATA:
-            np.save(f"{ROOT}/Diagonalized_{IDENTIFIER}.npy", data)
+            # Diagonal data is for classical optimization algorithms, which want it in m x n form.
+            np.save(f"{ROOT}/{DIAG_FILE_PREFIX}_{IDENTIFIER}.npy", np.transpose(data, axes=(0, 2, 1)))
+
+            # We want move data to have index structure (trial, move, Pauli), so transpose the above.
+            np.save(f"{ROOT}/{MOVES_FILE_PREFIX}_{IDENTIFIER}.npy", np.transpose(moves, axes=(0, 2, 1)))
+
     
     if MAKE_PLOT:
         INDICES = np.arange(m2) if sampling_type == 4 else np.arange(m)
@@ -237,8 +259,8 @@ def main(args):
         plt.xlabel(f"Step number")
         plt.ylabel(f"Number of trials until success")
         plt.title(rf"$m = ${m}, $n = ${n}, $k = ${k} ({NUM_TRIALS} trials)")
-        plt.savefig(f"{ROOT}/IterationsCommuting_{IDENTIFIER}.png")
-        np.save(f"{ROOT}/IterationsCommuting_{IDENTIFIER}.npy", iter_data)
+        plt.savefig(f"{ROOT}/{ITRPLT_FILE_PREFIX}_{IDENTIFIER}.png")
+        np.save(f"{ROOT}/{ITRDATA_FILE_PREFIX}_{IDENTIFIER}.npy", iter_data)
 
 
 if __name__ == "__main__":
