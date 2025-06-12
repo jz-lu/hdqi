@@ -7,9 +7,10 @@ import numpy as np
 import argparse
 import matplotlib.pyplot as plt
 import time
+import pickle
 from constants import COMMUTE_FILE_PREFIX, DIAG_FILE_PREFIX, \
                       ITRPLT_FILE_PREFIX, ITRDATA_FILE_PREFIX, \
-                      MOVES_FILE_PREFIX, \
+                      MOVES_FILE_PREFIX, CLIFF_FILE_PREFIX, \
                       generate_identifier
 from helper import rand_k_sparse_vec, matrix_sym_inner_prod, \
                    symp2Pauli, matrix_symp2Pauli, rand_k_local_Pauli, \
@@ -234,11 +235,17 @@ def main(args):
         # Produce the diagonal representations of each instance
         start = time.perf_counter()
         cliffords = [find_diagonalizing_Clifford(data[trial], m, n) for trial in range(NUM_TRIALS)]
+
+        if SAVE_DATA:
+            # Save the Cliffords as a list in case you want it later
+            with open(f"{ROOT}/{CLIFF_FILE_PREFIX}_{IDENTIFIER}.pkl", "wb") as f:
+                pickle.dump(cliffords, f)
+
         diags = [apply_Clifford_circuit(cliffords[trial], data[trial], n, inplace=False) for trial in range(NUM_TRIALS)]
         end = time.perf_counter()
         minutes, seconds = divmod((end - start) / NUM_TRIALS, 60)
         print(f"Diagonalization took {minutes} min {round(seconds, 4)} sec on average per trial")
-        diags = np.stack(diags, axis=0)[:,:n,:] # cut off the zero part of each matrix
+        diags = np.stack(diags, axis=0)[:, :n, :] # cut off the zero part of each matrix
         assert diags.shape == (NUM_TRIALS, n, m)
 
         # Find the Pauli moves of each diagonal representation
@@ -248,11 +255,15 @@ def main(args):
         # X part. This way, both the diagonalized matrix and the moves are of length n instead of 2n.
         moves = np.stack([transform_standard_Paulis(cliff, n, inverse=True, include_y=True) for cliff in cliffords], axis=0)
         assert moves.shape == (NUM_TRIALS, 2*n, 3*n)
-        moves = moves[:,:n,:]
 
         if SAVE_DATA:
             # Diagonal data is for classical optimization algorithms, which want it in m x n form.
             np.save(f"{ROOT}/{DIAG_FILE_PREFIX}_{IDENTIFIER}.npy", np.transpose(diags, axes=(0, 2, 1)))
+
+            np.save(f"{ROOT}/FULL{MOVES_FILE_PREFIX}_{IDENTIFIER}.npy", np.transpose(moves, axes=(0, 2, 1)))
+            assert moves.shape == (NUM_TRIALS, 2*n, 3*n)
+
+            moves = moves[:, n:, :]
 
             # We want move data to have index structure (trial, move, Pauli), so transpose the above.
             np.save(f"{ROOT}/{MOVES_FILE_PREFIX}_{IDENTIFIER}.npy", np.transpose(moves, axes=(0, 2, 1)))

@@ -7,6 +7,7 @@ These include:
     * Sampling random sparse vectors
 """
 import numpy as np
+import copy
 
 """
 SECTION I: Manipulating symplectic vectors and matrices.
@@ -472,13 +473,10 @@ def transform_standard_Paulis(clifford, n, inverse=False, include_y=False):
           (X_1, ..., X_n, Z_1, ..., Z_n).
     """
     Paulis = standard_Pauli_tableau(n, include_y=include_y)
-    # for i in range(Paulis.shape[-1]):
-    #     print(Paulis[:,i])
     if inverse:
-        inverse_Clifford_circuit(clifford, inplace=True)
-    apply_Clifford_circuit(clifford, Paulis, n, inplace=True)
-    # for i in range(Paulis.shape[-1]):
-    #     print(Paulis[:,i])
+        apply_Clifford_circuit(inverse_Clifford_circuit(clifford, inplace=False), Paulis, n, inplace=True)
+    else:
+        apply_Clifford_circuit(clifford, Paulis, n, inplace=True)
     return Paulis
 
 

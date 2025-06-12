@@ -202,31 +202,35 @@ if __name__ == "__main__":
         type=int,
         default=1,
         choices=[1, 2],
-        help="1 for Z-local flips, 2 for natural local flips"
+        help="1 for Z-local flips, 2 for natural local flips",
     )
 
     parser.add_argument(
         "--size", "-n",
         type=int,
-        help="Size of solution"
+        help="Size of solution",
+        required=True
     )
 
     parser.add_argument(
         "--numclauses", "-m",
         type=int,
-        help="Number of clauses"
+        help="Number of clauses",
+        required=True
     )
 
     parser.add_argument(
         "--locality", "-k",
         type=int,
-        help="Locality of clauses"
+        help="Locality of clauses",
+        required=True
     )
 
     parser.add_argument(
         "--trials", "-t",
         type=int,
-        help="Number of trials"
+        help="Number of trials",
+        required=True
     )
 
     parser.add_argument(
