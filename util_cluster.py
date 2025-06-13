@@ -8,9 +8,9 @@ import os
 import re
 import numpy as np
 from pathlib import Path
-from constants import COMMUTE_FILE_PREFIX
+from constants import COMMUTE_FILE_PREFIX, MOVES_FILE_PREFIX, DIAG_FILE_PREFIX
 
-def concat_keyed_files(directory):
+def concat_keyed_files(directory, pfx):
     """
     If you're parallelizing trials over the cluster, you might want to combine them back 
     into a single file when you're done. This function automates this task completely.
@@ -32,7 +32,7 @@ def concat_keyed_files(directory):
 
     # Regex to capture TYPE, m, n, k, t
     pattern = re.compile(
-        rf"^({COMMUTE_FILE_PREFIX}_[^_]+_m(\d+)n(\d+)k(\d+))_t(\d+)_KEY.*\.npy$"
+        rf"^({pfx}_[^_]+_m(\d+)n(\d+)k(\d+))_t(\d+)_KEY.*\.npy$"
     )
 
     # Group files by (prefix, m, n, k)
@@ -82,4 +82,5 @@ def concat_keyed_files(directory):
             print(f"Error saving {out_name}: {e}")
 
 if __name__ == "__main__":
-    concat_keyed_files("/Users/jzlu/Dropbox/data_hdqi")
+    for pfx in [COMMUTE_FILE_PREFIX, MOVES_FILE_PREFIX, DIAG_FILE_PREFIX]:
+        concat_keyed_files("/Users/jzlu/Dropbox/data_hdqi", pfx)

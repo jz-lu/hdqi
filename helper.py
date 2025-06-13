@@ -29,9 +29,9 @@ def standard_Pauli_tableau(n, include_y=False):
           Pauli. If `include_y`, one column for each X_i, Z_i, Y_i. Otherwise, 
           one column for each X_i and Z_i.
     """
-    tableau = np.eye(2*n, dtype=np.int8) # X's and Z's only
+    tableau = np.eye(2*n, dtype=int) # X's and Z's only
     if include_y:
-        eye = np.eye(n, dtype=np.int8)
+        eye = np.eye(n, dtype=int)
         ys = np.vstack([eye, eye])
         return np.hstack([tableau, ys])
     else:
@@ -60,7 +60,7 @@ def pauli_to_sym(pauli_str):
             z.append(1)
         else:
             raise ValueError(f"Invalid Pauli operator: {p}")
-    return np.array(x + z, dtype=np.int8)  # Concatenate X | Z parts
+    return np.array(x + z, dtype=int)  # Concatenate X | Z parts
 
 
 def symp2Pauli(x, n):

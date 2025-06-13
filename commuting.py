@@ -215,7 +215,7 @@ def main(args):
         iter_data = np.zeros((NUM_TRIALS, m))
         IDENTIFIER = generate_identifier(m, n, k, NUM_TRIALS, sampling_type=sampling_type, key=KEY)
         
-    data = np.zeros((NUM_TRIALS, m, 2*n), dtype=np.int8)
+    data = np.zeros((NUM_TRIALS, m, 2*n), dtype=int)
 
     for trial in range(NUM_TRIALS):
         start = time.perf_counter()

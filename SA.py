@@ -125,7 +125,8 @@ def main(args):
     TYPE = 1 if CLASSICAL else args.type 
     AUTO = args.auto
     WAIT_TIME = args.waittime
-    print(f"[{'CLASSICAL' if CLASSICAL else 'COMMUTING'}] Executing tyoe {TYPE} SA with {'auto' if AUTO else 'manual'} scheduling.")
+    print(f"[{'CLASSICAL' if CLASSICAL else 'COMMUTING'}] Executing type {TYPE} SA with {'auto' if AUTO else 'manual'} scheduling.")
+    print(f"m = {m}, n = {n}, k = {k}, {NUM_TRIALS} trials")
 
     # Import file of instances (assume they are already generated)
     IDENTIFIER = generate_identifier(m, n, k, NUM_TRIALS, sampling_type=1)
@@ -160,6 +161,7 @@ def main(args):
     for trial in range(NUM_TRIALS):
         print(f"STARTING TRIAL {trial}...\n")
         CLAUSES = INSTANCES[trial] 
+        print(f"Weight = {np.sum(CLAUSES, axis=0)}\n")
         MOVE_SPACE = None
 
         if TYPE == 1:
@@ -189,7 +191,7 @@ def main(args):
         print(f"[Trial {trial}] Ratio: {ratios[trial]}\n")
     
     np.save(f"SA_TYPE{TYPE}_{IDENTIFIER}.npy", ratios)
-    print(f"Average ratio: {np.mean(ratios)}\n")
+    print(f"Average ratio: <s>/{m} = {np.mean(ratios)} +/- {np.std(ratios)}\n")
 
 
 if __name__ == "__main__":
