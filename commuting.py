@@ -193,8 +193,8 @@ def main(args):
     KEY = None if args.key == -1 else args.key
     ROOT = args.save
     SAVE_DATA = not args.nosave
-    MAKE_PLOT = not args.noplot
-    DIAGONALIZE = args.diagonalize
+    MAKE_PLOT = args.plot
+    DIAGONALIZE = True # args.diagonalize
     m = args.m; n = args.n; k = args.k
     m1 = args.m1; m2 = args.m2
     NUM_TRIALS = args.trials
@@ -325,9 +325,9 @@ if __name__ == "__main__":
         choices=[1, 2, 3, 4]
     )
     parser.add_argument(
-        "--noplot",
+        "--plot",
         action="store_true",
-        help="Flag if you don't want instance plots"
+        help="Flag if you want instance plots"
     )
     parser.add_argument(
         "--nosave",

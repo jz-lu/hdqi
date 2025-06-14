@@ -54,6 +54,9 @@ class Max_XOR_SAT_Annealer(Annealer):
         self.clauses = clauses # B
         self.target = target # v
         self.move_space = move_space
+        # print("Possible moves:")
+        # for move in move_space:
+        #     print(move)
         self.num_moves = num_moves
 
     def move(self):
@@ -122,7 +125,8 @@ def main(args):
     CLASSICAL = args.classical
     NUM_TRIALS = args.trials
     ROOT = args.root
-    TYPE = 1 if CLASSICAL else args.type 
+    OUTDIR = args.out
+    TYPE = 1 if CLASSICAL else args.type
     AUTO = args.auto
     WAIT_TIME = args.waittime
     print(f"[{'CLASSICAL' if CLASSICAL else 'COMMUTING'}] Executing type {TYPE} SA with {'auto' if AUTO else 'manual'} scheduling.")
@@ -190,7 +194,7 @@ def main(args):
         ratios[trial] = (m - energy) / (2 * m)
         print(f"[Trial {trial}] Ratio: {ratios[trial]}\n")
     
-    np.save(f"SA_TYPE{TYPE}_{IDENTIFIER}.npy", ratios)
+    np.save(f"{OUTDIR}/SA_TYPE{TYPE}_{IDENTIFIER}.npy", ratios)
     print(f"Average ratio: <s>/{m} = {np.mean(ratios)} +/- {np.std(ratios)}\n")
 
 
@@ -239,6 +243,13 @@ if __name__ == "__main__":
         "--root", "-i",
         type=str,
         help="Import file directory",
+        default='.'
+    )
+
+    parser.add_argument(
+        "--out", "-o",
+        type=str,
+        help="Output file directory",
         default='.'
     )
 
