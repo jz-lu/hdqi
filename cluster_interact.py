@@ -74,12 +74,15 @@ def create_gen(root):
 
 
 def submit_gen(root):
+    MAX_N = 200
     batch_files = glob.glob(os.path.join(root, "BAT_*_*_*"))
     for bf in batch_files:
         base = os.path.basename(bf)
         try:
             _, n_str, r_str, k_str = base.split('_')
             n, r, k = int(n_str), int(r_str), int(k_str)
+            if n > MAX_N:
+                continue
         except ValueError:
             print(f"Skipping unrecognized file: {base}")
             continue

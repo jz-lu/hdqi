@@ -96,20 +96,41 @@ def star_graph(n):
         G[0, i] = G[i, 0] = 1
     return G
 
-# Test f_of_G on star graphs
-print("===== STAR =====")
-for n in range(1, 10):
-    G_star = star_graph(n)
-    val = f_of_G(G_star)
-    claimed = closed_form_star(n)
-    print(f"n = {n} \t\t a = {val} \t\t\t expected = {claimed}")
+def cycle_graph(n):
+    """
+    Builds the adjacency matrix of the undirected n‐cycle:
+    edges (0,1), (1,2), ..., (n-2, n-1), (n-1,0).
+    
+    Returns: n x n matrix of 0/1
+    """
+    adj = np.zeros((n, n), dtype=int)
+    for i in range(n):
+        j = (i+1) % n
+        adj[i,j] = adj[j,i] = 1
+    return adj
 
-# # Test f(G) on chain graphs
-# print("===== CHAIN =====")
-# for n in range(1, 12):
-#     G_chain = chain_graph(n)
-#     val = f_of_G(G_chain)
-#     claimed = closed_form_chain(n)
+# Test f_of_G on cycle graphs
+print("===== CYCLE =====")
+for n in range(1, 11):
+    G_star = cycle_graph(n)
+    val = f_of_G(G_star)
+    claimed = 0
+    print(f"n = {n} \t\t a = {val}")
+
+# # Test f_of_G on star graphs
+# print("===== STAR =====")
+# for n in range(1, 10):
+#     G_star = star_graph(n)
+#     val = f_of_G(G_star)
+#     claimed = closed_form_star(n)
 #     print(f"n = {n} \t\t a = {val} \t\t\t expected = {claimed}")
+
+# Test f(G) on chain graphs
+print("===== CHAIN =====")
+for n in range(1, 11):
+    G_chain = chain_graph(n)
+    val = f_of_G(G_chain)
+    claimed = closed_form_chain(n)
+    print(f"n = {n} \t\t a = {val} \t\t\t expected = {claimed}")
 
 
