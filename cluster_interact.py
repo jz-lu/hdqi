@@ -57,7 +57,7 @@ TEMPLATE_OPT = """#!/bin/bash
 
 source activate myenv
 echo "Starting SA optimization"
-python SA.py -m {m} -n {n} -k {k} --trials {trials} --root {root} -o {root}
+python SA.py -m {m} -n {n} -k {k} --trials {trials} --root {root} -o {root} -a -w 3
 echo "Done optimization!"
 """
 
@@ -81,6 +81,7 @@ def submit_gen(root):
         try:
             _, n_str, r_str, k_str = base.split('_')
             n, r, k = int(n_str), int(r_str), int(k_str)
+            m = n*r
             if n > MAX_N:
                 continue
         except ValueError:
