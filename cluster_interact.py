@@ -90,9 +90,9 @@ def submit_gen(root):
         if trials == 100:
             cmd = ["sbatch", bf]
         else:
-            if trials % 100 != 0:
+            if 100 % trials != 0:
                 raise ValueError(f"Trials {trials} for {base} is not divisible by 100")
-            p = trials // 100
+            p = 100 // trials
             cmd = ["sbatch", f"--array=0-{p-1}", bf]
         print(f"Running: {' '.join(cmd)}")
         subprocess.run(cmd, check=True)
