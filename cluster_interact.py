@@ -88,6 +88,8 @@ def submit_gen(root):
             print(f"Skipping unrecognized file: {base}")
             continue
         trials = determine_trials(n, r, k)
+        if os.path.exists(f"./DiagCommuting_TYPE1_m{m}n{n}k{k}_t100.npy"):
+            print(f"Skipping previously executed file: {base}")
         if trials == 100:
             cmd = ["sbatch", bf]
         else:

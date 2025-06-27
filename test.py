@@ -1,136 +1,98 @@
-import numpy as np
-import itertools
-from math import factorial, gcd
-import sympy as sp
+import pandas as pd
+import matplotlib.pyplot as plt
+import os
+from matplotlib.lines import Line2D
 
-# Define the symbol once
-x = sp.symbols('x')
+# 1. Load the CSVs
+df1 = pd.read_csv("../data_hdqi/Stephen_in/gibbs_data.csv")                             # has header: n, m, k, e, ratio, semicircle
+df2 = pd.read_csv("../data_hdqi/Stephen_out/SA_Stephen.csv", header=None,              # no header
+                  names=["m", "n", "k", "SA"])
 
-def reduce_fraction(a: int, b: int) -> str:
-    """
-    Reduce the fraction a/b to lowest terms and return as a string "num/den".
-    Raises ZeroDivisionError if b == 0.
-    """
-    if b == 0:
-        raise ZeroDivisionError("Denominator cannot be zero")
-    # Compute greatest common divisor
-    g = gcd(a, b)
-    # Divide out gcd
-    num, den = a // g, b // g
-    # Ensure the denominator is positive
-    if den < 0:
-        num, den = -num, -den
-    return f"{num}/{den}"
+# 2. Ensure m, n, k are integers in both
+for col in ("m", "n", "k"):
+    df1[col] = df1[col].astype(int)
+    df2[col] = df2[col].astype(int)
 
-def f_of_G(adj_matrix):
-    """
-    Compute f(G) = (1/n!) * sum_pi sgn_G(pi)
-    where sgn_G(pi) = (-1)^k and k is the number of nearest-neighbor swaps 
-    along edges needed to sort pi to identity via bubble sort.
-    """
-    n = adj_matrix.shape[0]
-    total = 0
-    for pi in itertools.permutations(range(n)):
-        perm = list(pi)
-        swaps_on_edges = 0
-        # Bubble-sort-like procedure to bring perm to [0,1,2,...,n-1]
-        perm_copy = perm.copy()
-        for target in range(n):
-            # Find the current position of the target element
-            idx = perm_copy.index(target)
-            # Bubble it down to position 'target' via adjacent swaps
-            while idx > target:
-                i, j = idx - 1, idx
-                # If the swap is along an edge in G, count it
-                if adj_matrix[perm_copy[i], perm_copy[j]] == 1:
-                    swaps_on_edges += 1
-                # Perform the swap
-                perm_copy[i], perm_copy[j] = perm_copy[j], perm_copy[i]
-                idx -= 1
-        total += (-1) ** swaps_on_edges
-    if total != 0:
-        return reduce_fraction(total, factorial(n))
-    else:
-        return 0
+# 3. Merge SA from df2 into df1 on the (m, n, k) keys
+df1 = df1.merge(
+    df2[["m", "n", "k", "SA"]],
+    on=["m", "n", "k"],
+    how="left",      # preserves all rows of df1 in original order
+    validate="one_to_one"
+)
 
-def closed_form_chain(n):
-    """
-    Compute the closed‐form f(P_n):
-      f(P_n) = 0                     if n is even,
-      f(P_n) = (-1)^((n-1)/2) * E_n/n! if n is odd,
-    where E_n are the 'tangent' Euler numbers from tan(x) = sum E_n x^n/n!.
-    """
-    n = int(n)
-    # Even n gives zero
-    if n % 2 == 0:
-        return sp.Integer(0)
-    # Expand tan(x) series up to x^n
-    series_tan = sp.series(sp.tan(x), x, 0, n+1).removeO()
-    # Coefficient of x^n in the series is E_n/n!
-    coeff = sp.simplify(series_tan.coeff(x, n))
-    # Apply the closed‐form factor
-    sign = (-1)**((n - 1)//2)
-    return sp.simplify(sign * coeff)
+df = df1
+# Now df1 has a new column 'SA' aligned correctly.
+print(df.head())
 
-def closed_form_star(n):
-    return "0" if n%2 == 0 else f"1/{n}"
+import os
+import matplotlib.pyplot as plt
 
-def chain_graph(n):
-    """
-    Generate the adjacency matrix of an undirected chain graph on n nodes:
-    edges between (0,1), (1,2), ..., (n-2, n-1).
-    """
-    G = np.zeros((n, n), dtype=int)
-    for i in range(n - 1):
-        G[i, i + 1] = G[i + 1, i] = 1
-    return G
+# Ensure output directory exists
+os.makedirs('plots', exist_ok=True)
 
-def star_graph(n):
-    """
-    Adjacency matrix of the n‑node star graph:
-      – v0 is the center, connected to v1,…,v_{n-1}.
-      – No other edges.
-    """
-    G = np.zeros((n, n), dtype=int)
-    for i in range(1, n):
-        G[0, i] = G[i, 0] = 1
-    return G
+# Compute integer ratio column
+df['ratio'] = (df['m'] / df['n']).astype(int)
 
-def cycle_graph(n):
-    """
-    Builds the adjacency matrix of the undirected n‐cycle:
-    edges (0,1), (1,2), ..., (n-2, n-1), (n-1,0).
-    
-    Returns: n x n matrix of 0/1
-    """
-    adj = np.zeros((n, n), dtype=int)
-    for i in range(n):
-        j = (i+1) % n
-        adj[i,j] = adj[j,i] = 1
-    return adj
+# Get unique integer ratios and sorted k values
+ratios = sorted(df['ratio'].unique())
+unique_k = sorted(df['k'].unique())
 
-# Test f_of_G on cycle graphs
-print("===== CYCLE =====")
-for n in range(1, 11):
-    G_star = cycle_graph(n)
-    val = f_of_G(G_star)
-    claimed = 0
-    print(f"n = {n} \t\t a = {val}")
+# Prepare a consistent color mapping for k values
+cmap = plt.get_cmap('tab10')
+colors = {k: cmap(i % 10) for i, k in enumerate(unique_k)}
 
-# # Test f_of_G on star graphs
-# print("===== STAR =====")
-# for n in range(1, 10):
-#     G_star = star_graph(n)
-#     val = f_of_G(G_star)
-#     claimed = closed_form_star(n)
-#     print(f"n = {n} \t\t a = {val} \t\t\t expected = {claimed}")
+# Loop over each integer ratio and generate a scatter plot
+for r in ratios:
+    sub_r = df[df['ratio'] == r]
+    if sub_r.empty:
+        continue
 
-# Test f(G) on chain graphs
-print("===== CHAIN =====")
-for n in range(1, 11):
-    G_chain = chain_graph(n)
-    val = f_of_G(G_chain)
-    claimed = closed_form_chain(n)
-    print(f"n = {n} \t\t a = {val} \t\t\t expected = {claimed}")
+    fig, ax = plt.subplots()
+    # Plot semicircle (triangle) and SA (circle) for each k
+    for k in unique_k:
+        sub_k = sub_r[sub_r['k'] == k]
+        if sub_k.empty:
+            continue
+        ax.scatter(
+            sub_k['n'], sub_k['semicircle'],
+            marker='^', label=f'k={k} (semicircle)',
+            color=colors[k]
+        )
+        ax.scatter(
+            sub_k['n'], sub_k['SA'],
+            marker='o', label=f'k={k} (SA)',
+            color=colors[k]
+        )
 
+    # Create separate legends
+    from matplotlib.lines import Line2D
+    # Legend for k (color)
+    color_handles = [
+        Line2D([0], [0], marker='o', color=colors[k], linestyle='None', markersize=8)
+        for k in unique_k if not sub_r[sub_r['k'] == k].empty
+    ]
+    color_labels = [f'k={k}' for k in unique_k if not sub_r[sub_r['k'] == k].empty]
+    legend_k = ax.legend(color_handles, color_labels, title='Value of k', loc='lower left')
 
+    # Legend for marker style (metric)
+    style_handles = [
+        Line2D([0], [0], marker='^', color='black', linestyle='None', markersize=8),
+        Line2D([0], [0], marker='o', color='black', linestyle='None', markersize=8)
+    ]
+    style_labels = ['semicircle (triangle)', 'SA (circle)']
+    legend_style = ax.legend(style_handles, style_labels, title='Metric', loc='lower right')
+    ax.add_artist(legend_k)
+
+    # Labels, limits, title
+    ax.set_xlabel('n')
+    ax.set_ylabel('Metric Value')
+    ax.set_ylim(0.4, 0.8)
+    ax.set_title(f'Ratio m/n = {r}')
+
+    # Save the figure
+    filename = f'plots/ratio_{r}.png'
+    plt.savefig(filename)
+    plt.close(fig)
+
+print(f"Generated {len(ratios)} scatter plots in the 'plots' directory.")
