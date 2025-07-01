@@ -121,7 +121,7 @@ def run_annealer(clauses, initial_state, target, \
 
 def find_files(directory: str) -> list[str]:
     """
-    Search a directory for files matching the pattern `DiagStephen_<n>_<m>_<k>.tsv` and return their paths.
+    Search a directory for files matching the pattern `DiagStephen_<n>_<m>_<k>.npy` and return their paths.
 
     Args:
         directory: Path to the directory to search.
@@ -167,12 +167,20 @@ def main(args):
         OUTDIR = ROOT
     TYPE = args.type
     AUTO = args.auto
+    INDEX = args.index
+    CHECK = args.check
     WAIT_TIME = args.waittime
+    TRIALS = args.trials
     print(f"Executing type {TYPE} SA with {'auto' if AUTO else 'manual'} scheduling.")
 
     filenames = find_files(ROOT)
-    results = np.zeros((len(filenames), 4))
-    for idx, filename in enumerate(filenames):
+
+    if CHECK:
+        print(f"There are {len(filenames)} codes to optimize.")
+        exit(0)
+    
+    else:
+        filename = filenames[INDEX]
         instance = np.load(filename).T
         basename = os.path.basename(filename)
         match = re.match(r'^DiagStephen_(\d+)_(\d+)_(\d+)\.npy$', basename)
@@ -182,42 +190,45 @@ def main(args):
         m = int(match.group(1))
         n = int(match.group(2))
         k = int(match.group(3))
-        assert instance.shape == (m, n), f"Instanace shape should be {(m, n)} but is {instance.shape}"
+        assert instance.shape == (m, n), f"Instance shape should be {(m, n)} but is {instance.shape}"
+        IDENTIFIER = f"TYPE{TYPE}_m{m}n{n}k{k}_{INDEX}"
 
         # Write down the starting and ending temperatures for annealing
         Tmin = 1e-2
         Tmax = find_starting_temp(m, 0.98)
-        NUM_STEPS = 200_000
+        NUM_STEPS = 500 * m
+        MOVE_SPACE - None
 
         if TYPE == 1:
             # Move space consists of local bit flips
             MOVE_SPACE = np.eye(n, dtype=np.int8)
         elif TYPE == 2:
             # Move space consists of Pauli flips
-            raise SyntaxError("Not implemented yet.")
+            MOVE_SPACE = np.load(f"{ROOT}/MovesStephen_{m}_{n}_{k}.npy")
         else:
             raise ValueError(f"Invalid TYPE = {TYPE}")
         
-        initial_state = np.random.randint(0, 2, size=n, dtype=np.int8) # random start
-        target = np.random.randint(0, 2, size=m, dtype=np.int8) # random target
-        NUM_MOVES = MOVE_SPACE.shape[0]
+        results = np.zeros((TRIALS))
+        for j in range(TRIALS):
+            initial_state = np.random.randint(0, 2, size=n, dtype=np.int8) # random start
+            target = np.random.randint(0, 2, size=m, dtype=np.int8) # random target
+            NUM_MOVES = MOVE_SPACE.shape[0]
 
-        start = time.perf_counter()
-        energy = run_annealer(instance, initial_state, target, \
-                 MOVE_SPACE, NUM_MOVES, Tmin, Tmax, \
-                 NUM_STEPS, return_solution=False, auto=AUTO, wait_time=WAIT_TIME)
-        end = time.perf_counter()
-        minutes, seconds = divmod((end - start), 60)
-        print(f"[m={m}, n={n}, k={k}] SA took {minutes} min {round(seconds, 4)}\n")
+            start = time.perf_counter()
+            energy = run_annealer(instance, initial_state, target, \
+                    MOVE_SPACE, NUM_MOVES, Tmin, Tmax, \
+                    NUM_STEPS, return_solution=False, auto=AUTO, wait_time=WAIT_TIME)
+            end = time.perf_counter()
+            minutes, seconds = divmod((end - start), 60)
+            
+            # `energy`` is #UNSAT - #SAT. Proportion satisfied is #SAT / m.
+            # We compute this using #UNSAT + #SAT = m, so #SAT = (m - `energy`)/2
+            ratio = (m - energy) / (2 * m)
+            results[j] = ratio
+            print(f"[m={m}, n={n}, k={k}, Trial {j}] SA took {minutes} min {round(seconds, 4)}. Ratio = {ratio}\n")
         
-        # `energy`` is #UNSAT - #SAT. Proportion satisfied is #SAT / m.
-        # We compute this using #UNSAT + #SAT = m, so #SAT = (m - `energy`)/2
-        ratio = (m - energy) / (2 * m)
-        print(f"[m={m}, n={n}, k={k}] Ratio: {ratio}\n")
-        results[idx] = np.array([m, n, k, ratio])
-        np.save(f"{OUTDIR}/SA_Stephen.npy", results)
-        save_csv(f"{OUTDIR}/SA_Stephen.csv", results)
-        
+        print(f"Final ratio: {round(np.mean(results) * 100, 2)} +/- {round(np.std(results) * 100, 2)}")
+        np.save(f"{OUTDIR}/SAStephen_{IDENTIFIER}.npy", results)
     
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -246,6 +257,13 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
+        "--trials", "-t",
+        type=int,
+        help="Number of random trials with random targets/initializations",
+        default=20
+    )
+
+    parser.add_argument(
         "--auto", "-a",
         action="store_true",
         help="Use automatic scheduler instead of manual specs",
@@ -257,6 +275,21 @@ if __name__ == "__main__":
         help="How many minutes you're willing to wait (if using automatic scheduler)",
         default=1
     )
+
+    parser.add_argument(
+        "--index",
+        type=int,
+        help="Index of the code you want to optimize",
+        required=True
+    )
+
+    parser.add_argument(
+        "--check", "-c",
+        action="store_true",
+        help="Check number of codes without doing optimization",
+    )
+
+
 
     args = parser.parse_args()
     main(args)
