@@ -290,6 +290,7 @@ def apply_Clifford_circuit(clifford, Paulis, n, inplace=True):
 
     for gate in clifford:
         gatelen = len(gate) # should be 2 or 3
+        # print(f"Applying {gate}")
         if gatelen == 2:
             op, qubit = gate
             Paulis = apply_Clifford_gate(Paulis, op, n, qubit)
@@ -474,7 +475,9 @@ def transform_standard_Paulis(clifford, n, inverse=False, include_y=False):
     """
     Paulis = standard_Pauli_tableau(n, include_y=include_y)
     if inverse:
-        apply_Clifford_circuit(inverse_Clifford_circuit(clifford, inplace=False), Paulis, n, inplace=True)
+        inv_clifford = inverse_Clifford_circuit(clifford, inplace=False)
+        # print(inv_clifford)
+        apply_Clifford_circuit(inv_clifford, Paulis, n, inplace=True)
     else:
         apply_Clifford_circuit(clifford, Paulis, n, inplace=True)
     return Paulis
@@ -667,31 +670,11 @@ if __name__ == "__main__":
     """
     Use this space to build and run any pertinent test cases
     """
-    # L = 2
-    # n = 2*L**2
-    # m = n
-    # print(f"Test case: n = {n}, m = {m}")
 
-    # M = toric_code_symplectic_matrix(L)
-    # clifford = find_diagonalizing_Clifford(M, m, n)
-    # apply_Clifford_circuit(clifford, M, n)
+    n = 2
+    my_clifford = [('CX', 0, 1), ('H', 1)]
+    paulis = transform_standard_Paulis(my_clifford, n, inverse=True, include_y=True)
+    for i in range(3*n):
+        print(symp2Pauli(paulis[:,i], n))
 
-    m = 8
-    n = 5
-    M = np.load("Commuting_TYPE1_m8n5k2_t1.npz.npy")[0]
-    print(f"START:\n{M}")
-    clifford = find_diagonalizing_Clifford(M, m, n)
-    apply_Clifford_circuit(clifford, M, n)
-
-    # m = 4
-    # n = 5
-    # M = five_qubit_stabilizer_tableau()
-    # print(f"START:\n{M}")
-    # clifford = find_diagonalizing_Clifford(M, m, n)
-    # print(f"CHECKPOINT:\n{M}")
-    # D = apply_Clifford_circuit(clifford, M, n)
-    # print(D)
-
-    assert np.all(M[n:] == 0), f"Failed to diagonalize matrix:\n{M}"
-    print("Test case passed successfully")
     exit(0)

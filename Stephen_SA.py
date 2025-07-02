@@ -190,6 +190,7 @@ def main(args):
         m = int(match.group(1))
         n = int(match.group(2))
         k = int(match.group(3))
+        print(f"m = {m}, n = {n}, k = {k}")
         assert instance.shape == (m, n), f"Instance shape should be {(m, n)} but is {instance.shape}"
         IDENTIFIER = f"TYPE{TYPE}_m{m}n{n}k{k}_{INDEX}"
 
@@ -197,14 +198,15 @@ def main(args):
         Tmin = 1e-2
         Tmax = find_starting_temp(m, 0.98)
         NUM_STEPS = 500 * m
-        MOVE_SPACE - None
+        MOVE_SPACE = None
 
         if TYPE == 1:
             # Move space consists of local bit flips
             MOVE_SPACE = np.eye(n, dtype=np.int8)
         elif TYPE == 2:
             # Move space consists of Pauli flips
-            MOVE_SPACE = np.load(f"{ROOT}/MovesStephen_{m}_{n}_{k}.npy")
+            MOVE_SPACE = np.load(f"{ROOT}/MovesStephen_{m}_{n}_{k}.npy").T
+            NUM_STEPS *= 3
         else:
             raise ValueError(f"Invalid TYPE = {TYPE}")
         
@@ -288,7 +290,6 @@ if __name__ == "__main__":
         action="store_true",
         help="Check number of codes without doing optimization",
     )
-
 
 
     args = parser.parse_args()

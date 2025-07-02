@@ -1,6 +1,7 @@
 import os
 import re
 import numpy as np
+import pickle
 from helper import check_symplectic_consistency, find_diagonalizing_Clifford, apply_Clifford_circuit, \
                     transform_standard_Paulis
 
@@ -99,10 +100,14 @@ if __name__ == "__main__":
         print(f"Saved {this_out}")
 
         clifford = find_diagonalizing_Clifford(matrix, m, n)
+        with open(f"{OUT_PATH}/CliffStephen_{m}_{n}_{k}.pkl", "wb") as f:
+                pickle.dump(clifford, f)
         moves = transform_standard_Paulis(clifford, n, inverse=True, include_y=True)
         assert moves.shape == (2*n, 3*n)
         apply_Clifford_circuit(clifford, matrix, n, inplace=True)
-        matrix = matrix[:n, :] # cut off the zero part of each matrix
+        assert np.all(matrix[n:,:] == 0)
+        matrix = matrix[:n, :] # cut off the Z-part of the matrix, which is all zero
+        moves = moves[n:, :] # cut off the X part of the Paulis, which does not affect the state
         assert matrix.shape == (n, m), f"Matrix shape should be {(n, m)} but is {matrix.shape}"
         this_out = f"{OUT_PATH}/DiagStephen_{m}_{n}_{k}.npy"
         moves_out = f"{OUT_PATH}/MovesStephen_{m}_{n}_{k}.npy"
