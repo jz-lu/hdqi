@@ -174,6 +174,7 @@ def main(args):
     print(f"Executing type {TYPE} SA with {'auto' if AUTO else 'manual'} scheduling.")
 
     filenames = find_files(ROOT)
+    filenames.sort()
 
     if CHECK:
         print(f"There are {len(filenames)} codes to optimize.")
@@ -197,7 +198,7 @@ def main(args):
         # Write down the starting and ending temperatures for annealing
         Tmin = 1e-2
         Tmax = find_starting_temp(m, 0.98)
-        NUM_STEPS = 500 * m
+        NUM_STEPS = 50 * m
         MOVE_SPACE = None
 
         if TYPE == 1:
@@ -227,7 +228,7 @@ def main(args):
             # We compute this using #UNSAT + #SAT = m, so #SAT = (m - `energy`)/2
             ratio = (m - energy) / (2 * m)
             results[j] = ratio
-            print(f"[m={m}, n={n}, k={k}, Trial {j}] SA took {minutes} min {round(seconds, 4)}. Ratio = {ratio}\n")
+            print(f"[m={m}, n={n}, k={k}, Trial {j}] SA took {minutes} min {round(seconds, 4)} sec. Ratio = {ratio}\n")
         
         print(f"Final ratio: {round(np.mean(results) * 100, 2)} +/- {round(np.std(results) * 100, 2)}")
         np.save(f"{OUTDIR}/SAStephen_{IDENTIFIER}.npy", results)
