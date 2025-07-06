@@ -673,8 +673,20 @@ if __name__ == "__main__":
 
     n = 2
     my_clifford = [('CX', 0, 1), ('H', 1)]
-    paulis = transform_standard_Paulis(my_clifford, n, inverse=True, include_y=True)
+    print("==== INVERSE ====")
+    paulis = transform_standard_Paulis(my_clifford, n, inverse=False, include_y=True)
+    paulis2 = paulis[n:,:]
+    paulis2 = np.vstack((np.zeros_like(paulis2, dtype=int), paulis2))
+    print(f"PRE \t\t CUT\n--- \t\t ---")
     for i in range(3*n):
-        print(symp2Pauli(paulis[:,i], n))
+        print(f"{symp2Pauli(paulis[:,i], n)} \t\t {symp2Pauli(paulis2[:,i], n)}")
+
+    print("\n\n==== NO INVERSE ====")
+    paulis = transform_standard_Paulis(my_clifford, n, inverse=True, include_y=True)
+    paulis2 = paulis[n:,:]
+    paulis2 = np.vstack((np.zeros_like(paulis2, dtype=int), paulis2))
+    print(f"PRE \t\t CUT\n--- \t\t ---")
+    for i in range(3*n):
+        print(f"{symp2Pauli(paulis[:,i], n)} \t\t {symp2Pauli(paulis2[:,i], n)}")
 
     exit(0)
