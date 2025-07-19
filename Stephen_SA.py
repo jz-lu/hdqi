@@ -11,6 +11,8 @@ import argparse
 import time
 import os
 import re
+import pickle
+from helper import standard_Pauli_tableau, apply_Clifford_circuit, symp2sparsePauli
 from constants import generate_identifier, DIAG_FILE_PREFIX, MOVES_FILE_PREFIX, \
                       generate_classical_identifier, CLASSICAL_FILE_PREFIX
 
@@ -37,7 +39,7 @@ def find_ending_temp(prob):
 
 
 class Max_XOR_SAT_Annealer(Annealer):
-    def __init__(self, state, clauses, target, move_space, num_moves):
+    def __init__(self, state, clauses, target, move_space, num_moves, test=False, cliff=None):
         """
         Set up a SA instance for max-XOR-SAT. Want to find x such that |Bx - v| is minimized.
 
@@ -53,6 +55,7 @@ class Max_XOR_SAT_Annealer(Annealer):
             * None
         """
         super(Max_XOR_SAT_Annealer, self).__init__(state)
+        assert not(test and (cliff is None))
         self.clauses = clauses # B
         self.target = target # v
         self.move_space = move_space
@@ -60,6 +63,10 @@ class Max_XOR_SAT_Annealer(Annealer):
         # for move in move_space:
         #     print(move)
         self.num_moves = num_moves
+        self.test = test
+        if test:
+            self.cliff = list(reversed(cliff)) # reverse the clifford to invert it
+            assert self.cliff == cliff[::-1]
 
     def move(self):
         """
@@ -82,7 +89,7 @@ class Max_XOR_SAT_Annealer(Annealer):
 
 def run_annealer(clauses, initial_state, target, \
                  move_space, num_moves, Tmin, Tmax, \
-                 num_steps, return_solution=False, auto=False, wait_time=1):
+                 num_steps, return_solution=False, auto=False, wait_time=1, test=False, cliff=None):
     """
     Run the simulated annealer on a given instance.
 
@@ -105,7 +112,8 @@ def run_annealer(clauses, initial_state, target, \
         * if `return_solution`, returns pair (solution, energy). Otherwise, returns just the 
           energy of the solution found at the end of the process.
     """
-    annealer = Max_XOR_SAT_Annealer(initial_state, clauses, target, move_space, num_moves)
+    assert not(test and (cliff is None))
+    annealer = Max_XOR_SAT_Annealer(initial_state, clauses, target, move_space, num_moves, test=test, cliff=cliff)
     annealer.steps = num_steps
     annealer.Tmin, annealer.Tmax = Tmin, Tmax
     annealer.updates = 100   # Number of updates (by default an update prints to stdout)
@@ -161,20 +169,35 @@ def save_csv(array, filepath):
 
 def main(args):
     # Process arguments
+    INDEX = args.index
+    TRIALS = args.trials
+    RUN = 0
+
+    HYPERIDX = args.run
+    assert HYPERIDX is not None or INDEX is not None, f"You must specify either an index or a hyperindex"
+    if HYPERIDX is not None:
+        RUN = HYPERIDX % TRIALS
+        INDEX = HYPERIDX // TRIALS
+        TRIALS = 1
+        print(f"[Single-trial threads {HYPERIDX}] Run {RUN} for index {INDEX}")
+
     ROOT = args.root
     OUTDIR = args.out
     if OUTDIR is None:
         OUTDIR = ROOT
     TYPE = args.type
     AUTO = args.auto
-    INDEX = args.index
     CHECK = args.check
     WAIT_TIME = args.waittime
-    TRIALS = args.trials
+    TEST = args.test
+    assert not(TEST and (TYPE == 1)), f"Test mode is only for Type 2"
     print(f"Executing type {TYPE} SA with {'auto' if AUTO else 'manual'} scheduling.")
 
     filenames = find_files(ROOT)
     filenames.sort()
+    for filename in filenames:
+        print(filename)
+    print("=====================\n")
 
     if CHECK:
         print(f"There are {len(filenames)} codes to optimize.")
@@ -193,13 +216,14 @@ def main(args):
         k = int(match.group(3))
         print(f"m = {m}, n = {n}, k = {k}")
         assert instance.shape == (m, n), f"Instance shape should be {(m, n)} but is {instance.shape}"
-        IDENTIFIER = f"TYPE{TYPE}_m{m}n{n}k{k}_{INDEX}"
+        IDENTIFIER = f"TYPE{TYPE}_m{m}n{n}k{k}_{INDEX}_{RUN}"
 
         # Write down the starting and ending temperatures for annealing
         Tmin = 1e-2
         Tmax = find_starting_temp(m, 0.98)
         NUM_STEPS = 50 * m
         MOVE_SPACE = None
+        Cliff = None
 
         if TYPE == 1:
             # Move space consists of local bit flips
@@ -208,6 +232,18 @@ def main(args):
             # Move space consists of Pauli flips
             MOVE_SPACE = np.load(f"{ROOT}/MovesStephen_{m}_{n}_{k}.npy").T
             NUM_STEPS *= 3
+            if TEST:
+                # MOVE_SPACE = standard_Pauli_tableau(n, include_y=True)
+                # print(f"MOVE SPACE SHAPE = {MOVE_SPACE.shape}")
+                # assert os.path.exists(f"{ROOT}/CliffStephen_{m}_{n}_{k}.pkl")
+                # print(f"{ROOT}/CliffStephen_{m}_{n}_{k}.pkl")
+                with open(f"{ROOT}/CliffStephen_{m}_{n}_{k}.pkl", "rb") as f:
+                    Cliff = pickle.load(f)
+                given = np.load(f"{ROOT}/MovesStephen_{m}_{n}_{k}.npy").T
+                paulis = standard_Pauli_tableau(n, include_y=True)
+                apply_Clifford_circuit(Cliff[::-1], paulis, n, inplace=True)
+                assert np.all(given == paulis[n:].T)
+
         else:
             raise ValueError(f"Invalid TYPE = {TYPE}")
         
@@ -216,11 +252,12 @@ def main(args):
             initial_state = np.random.randint(0, 2, size=n, dtype=np.int8) # random start
             target = np.random.randint(0, 2, size=m, dtype=np.int8) # random target
             NUM_MOVES = MOVE_SPACE.shape[0]
+            print(f"[n = {n}] NUM_MOVES = {NUM_MOVES}")
 
             start = time.perf_counter()
             energy = run_annealer(instance, initial_state, target, \
                     MOVE_SPACE, NUM_MOVES, Tmin, Tmax, \
-                    NUM_STEPS, return_solution=False, auto=AUTO, wait_time=WAIT_TIME)
+                    NUM_STEPS, return_solution=False, auto=AUTO, wait_time=WAIT_TIME, test=TEST, cliff=Cliff)
             end = time.perf_counter()
             minutes, seconds = divmod((end - start), 60)
             
@@ -263,7 +300,13 @@ if __name__ == "__main__":
         "--trials", "-t",
         type=int,
         help="Number of random trials with random targets/initializations",
-        default=20
+        default=10
+    )
+
+    parser.add_argument(
+        "--run", "-r",
+        type=int,
+        help="Hyperindex for cluster usage"
     )
 
     parser.add_argument(
@@ -282,8 +325,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--index",
         type=int,
-        help="Index of the code you want to optimize",
-        required=True
+        help="Index of the code you want to optimize"
     )
 
     parser.add_argument(
@@ -292,6 +334,11 @@ if __name__ == "__main__":
         help="Check number of codes without doing optimization",
     )
 
+    parser.add_argument(
+        "--test",
+        action="store_true",
+        help="Test mode: directly use Cliffords",
+    )
 
     args = parser.parse_args()
     main(args)

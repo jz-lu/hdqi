@@ -93,9 +93,16 @@ if __name__ == "__main__":
     IN_PATH = "/Users/jzlu/Dropbox/data_hdqi/Stephen_in"
     OUT_PATH = "/Users/jzlu/Dropbox/data_hdqi/Stephen_out"
     files = find_cham_files(IN_PATH)
+    print("Found files:")
+    for file in files:
+        print(file)
+    print("\n=====================\n")
     for file in files:
         matrix, n, m, k = load_cham_matrix(file)
         this_out = f"{OUT_PATH}/Stephen_{m}_{n}_{k}.npy"
+        if os.path.exists(this_out):
+            print(f"Skipping existing path: {this_out}")
+            continue
         np.save(this_out, matrix)
         print(f"Saved {this_out}")
 

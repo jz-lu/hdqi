@@ -1,50 +1,28 @@
-from math import comb
-from fractions import Fraction
+import os
+import re
+import shutil
 
-def f_K_ab_closed(a: int, b: int) -> Fraction:
+def copy_files_with_n_greater_than_800(ROOT, OUT_DIR):
     """
-    Closed‑form for f(K_{a,b}) via a single alternating sum:
-      f = 1/C(a+b,a) * sum_{k=0..a} (-1)^k * C(a,k) * C(a+b-k-1, b-1).
+    Searches for files under ROOT matching the pattern *_<m>_<n>_<k>.*.
+    If n > 800, copies them to OUT_DIR.
     """
-    n = a + b
-    total = 0
-    for k in range(a+1):
-        total += (-1)**k * comb(a, k) * comb(n - k - 1, b - 1)
-    return Fraction(total, comb(n, a))
+    # Regular expression to match the filename pattern
+    pattern = re.compile(r'^.*_(\d+)_(\d+)_(\d+)\..*$')
 
-# --- Self‑check against brute force for a,b up to 6 ---
-if __name__ == "__main__":
-    import numpy as np, itertools, math
-    from fractions import Fraction
+    # Ensure output directory exists
+    os.makedirs(OUT_DIR, exist_ok=True)
 
-    def f_bruteforce(a, b):
-        n = a + b
-        # build K_{a,b}
-        G = np.zeros((n, n), int)
-        for i in range(a):
-            for j in range(a, n):
-                G[i, j] = G[j, i] = 1
-        total = 0
-        for pi in itertools.permutations(range(n)):
-            perm = list(pi)
-            swaps = 0
-            for t in range(n):
-                idx = perm.index(t)
-                while idx > t:
-                    if G[perm[idx-1], perm[idx]]:
-                        swaps += 1
-                    perm[idx-1], perm[idx] = perm[idx], perm[idx-1]
-                    idx -= 1
-            total += (-1)**swaps
-        return Fraction(total, math.factorial(n))
+    # Walk through all files in the directory tree
+    for dirpath, _, filenames in os.walk(ROOT):
+        for fname in filenames:
+            match = pattern.match(fname)
+            if match:
+                m, n, k = map(int, match.groups())
+                if n > 800:
+                    src_path = os.path.join(dirpath, fname)
+                    dst_path = os.path.join(OUT_DIR, fname)
+                    shutil.copy2(src_path, dst_path)
+                    print(f"Copied: {src_path} -> {dst_path}")
 
-    mismatch = False
-    for a in range(1, 7):
-        for b in range(1, 7):
-            c = f_K_ab_closed(a, b)
-            d = f_bruteforce(a, b)
-            if c != d:
-                print(f"Mismatch at a={a}, b={b}: closed={c}, brute={d}")
-                mismatch = True
-    if not mismatch:
-        print("All tests passed for 1 <= a,b <= 6!")
+copy_files_with_n_greater_than_800("../data_hdqi/Stephen_out/all_instances/", "../data_hdqi/Stephen_out")

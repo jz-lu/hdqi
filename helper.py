@@ -86,6 +86,30 @@ def symp2Pauli(x, n):
         vec.append(char)
     return ''.join(vec)
 
+def symp2sparsePauli(x, n):
+    """
+    Return a sign-free sparse Pauli string representation of the length 2`n` symplectic vector `x`.
+
+    Params:
+        * n (int): number of qubits.
+        * x (numpy.ndarray): binary vector of length 2n, symplectically representing a n-qubit Pauli string.
+    
+    Returns:
+        * sequence of pairs (Pauli, index)
+    """
+    vec = []
+    for i in range(n):
+        if x[i] == 0 and x[i+n] == 1:
+            char = 'Z'
+        elif x[i] == 1 and x[i+n] == 1:
+            char = 'Y'
+        elif x[i] == 1 and x[i+n] == 0:
+            char = 'X'
+        else:
+            continue
+        vec.append((char, i))
+    return vec
+
 
 def matrix_symp2Pauli(M, n):
     """
