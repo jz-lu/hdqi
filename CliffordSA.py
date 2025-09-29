@@ -12,10 +12,11 @@ import numpy as np
 import time
 import argparse
 import glob
+import subprocess
+import sys
 
 def list_cham_files(dirpath):
     pattern = os.path.join(dirpath, "cham_*_*_*.tsv")
-    print(pattern)
     files = glob.glob(pattern)
     return sorted(files)
 
@@ -203,6 +204,7 @@ def main():
     Main execution function to parse arguments and run the simulated annealing.
     """
     parser = argparse.ArgumentParser(description="Find low-energy stabilizer states using simulated annealing.")
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "stim"])
 
     # --- Required Argument ---
     parser.add_argument("slurm_idx", type=int, help="Index into which file to run")
