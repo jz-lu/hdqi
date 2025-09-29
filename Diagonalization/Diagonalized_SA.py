@@ -12,7 +12,7 @@ import time
 import os
 import re
 import pickle
-from helper import standard_Pauli_tableau, apply_Clifford_circuit, symp2sparsePauli
+from Diagonalization.helper import standard_Pauli_tableau, apply_Clifford_circuit, symp2sparsePauli
 from constants import generate_identifier, DIAG_FILE_PREFIX, MOVES_FILE_PREFIX, \
                       generate_classical_identifier, CLASSICAL_FILE_PREFIX
 

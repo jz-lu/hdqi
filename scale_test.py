@@ -11,7 +11,7 @@ This currently only works for Types 1-3. Type 4 is NOT supported.
 import numpy as np
 import matplotlib.pyplot as plt
 import argparse
-from commuting import sample_commuting_Paulis
+from generate_commuting import sample_commuting_Paulis
 
 def main(args):
     c = args.c

@@ -2,7 +2,7 @@ import os
 import re
 import numpy as np
 import pickle
-from helper import check_symplectic_consistency, find_diagonalizing_Clifford, apply_Clifford_circuit, \
+from Diagonalization.helper import check_symplectic_consistency, find_diagonalizing_Clifford, apply_Clifford_circuit, \
                     transform_standard_Paulis
 
 def load_cham_matrix(path: str) -> np.ndarray:

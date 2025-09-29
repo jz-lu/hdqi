@@ -82,4 +82,13 @@ My code is available on [Github](https://github.com/jz-lu/hdqi), currently priva
 It's a bit messy, but there are only a few things that matter. The folder `plots` gives my data, built by `process.ipynb` (very scrappy and vibe coded).
 
 What matters is (I) how I did the diagonalization and (II) how I did the SA.
+(I) is done by `diagonalize_commuting_Paulis()` in `helper.py`, an implementation of Gottesman's algorithm found in, e.g., 
+Chapter 6 of [Gottesman's book](https://www.cs.umd.edu/class/spring2024/cmsc858G/QECCbook-2024-ch1-15.pdf).
+The `helper.py` file also generates the standard Paulis (`X_i, Y_i, Z_i`) in symplectic form, then uses the
+Clifford to transform them. 
+All of this is combined in a wrapper program `stephen2jonathan.py` which calls these things.
+I also have a native sampler `commuting.py` which can in principle generate instances but seems to 
+be hilariously slow compared to `xortools` (e.g. several hours vs. a few seconds based on Stephen's description).
+
+That's all -- thanks for reading and looking into this!
 

@@ -12,7 +12,7 @@ from constants import COMMUTE_FILE_PREFIX, DIAG_FILE_PREFIX, \
                       ITRPLT_FILE_PREFIX, ITRDATA_FILE_PREFIX, \
                       MOVES_FILE_PREFIX, CLIFF_FILE_PREFIX, \
                       generate_identifier
-from helper import rand_k_sparse_vec, matrix_sym_inner_prod, \
+from Diagonalization.helper import rand_k_sparse_vec, matrix_sym_inner_prod, \
                    symp2Pauli, matrix_symp2Pauli, rand_k_local_Pauli, \
                    many_random_indices, rand_k_indices, check_overlap_parities, \
                    find_diagonalizing_Clifford, apply_Clifford_circuit, \

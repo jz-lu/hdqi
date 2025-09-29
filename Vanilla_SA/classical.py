@@ -6,7 +6,7 @@ Code file to generate classical max-k-XOR-SAT instances.
 import numpy as np
 import argparse
 from constants import CLASSICAL_FILE_PREFIX, generate_classical_identifier
-from helper import rand_k_sparse_matrix
+from Diagonalization.helper import rand_k_sparse_matrix
 
 def main(args):
     ROOT = args.save
