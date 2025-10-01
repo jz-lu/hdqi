@@ -11,13 +11,13 @@ import numpy as np
 import time
 import argparse
 import glob
-import subprocess
-import sys
-subprocess.check_call([sys.executable, "-m", "pip", "install", "stim"])
+# import subprocess
+# import sys
+# subprocess.check_call([sys.executable, "-m", "pip", "install", "stim"])
 import stim
 
-def list_cham_files(dirpath):
-    pattern = os.path.join(dirpath, "cham_*_*_*.tsv")
+def list_cham_files(dirpath, n, m, k):
+    pattern = os.path.join(dirpath, f"cham_{n}_{m}_{k}_*.tsv")
     files = glob.glob(pattern)
     return sorted(files)
 
@@ -30,11 +30,11 @@ def parse_cham_filename(filename):
         raise ValueError(f"Invalid filename: {filename}")
     
     parts = base[:-4].split("_")  # remove ".tsv" and split
-    if len(parts) != 4:  # ["cham", n, m, k]
+    if len(parts) != 5:  # ["cham", n, m, k]
         raise ValueError(f"Unexpected format: {filename}")
     
-    n, m, k = map(int, parts[1:])
-    return n, m, k
+    n, m, k, seed = map(int, parts[1:])
+    return n, m, k, seed
 
 
 def parse_hamiltonian(filepath):
@@ -200,6 +200,25 @@ def simulated_annealing_search(hamiltonian, n, max_sweeps=1000, initial_beta=0.0
     return current_energy
 
 
+def idx2params(idx):
+    """
+    Compute a parameter tuple from idx.
+    We have a finite number of parameters, given by some n's, some m/n's and some k's.
+    """
+    ns = [1200]
+    m_over_ns = [3, 6, 10]
+    ks = [3, 4, 5, 6]
+    max_idx = len(ns) * len(m_over_ns) * len(ks) - 1
+
+    assert 0 <= idx <= max_idx, f"Index {idx} exceeds max index {max_idx}"
+    n_idx = idx % len(ns)
+    idx = idx // len(ns)
+    m_idx = idx % len(m_over_ns)
+    idx = idx // len(m_over_ns)
+    k_idx = idx % len(ks)
+    n = ns[n_idx]
+    return (n, n * m_over_ns[m_idx], ks[k_idx])
+
 def main():
     """
     Main execution function to parse arguments and run the simulated annealing.
@@ -213,7 +232,7 @@ def main():
     parser.add_argument(
         "--max-sweeps",
         type=int,
-        default=80,
+        default=100,
         help="Total number of sweeps to perform."
     )
     parser.add_argument(
@@ -231,46 +250,50 @@ def main():
     parser.add_argument(
         '--trials',
         type=int, 
-        default=20,
+        default=1,
         help="Number of experimental trials."
     )
     parser.add_argument(
         '--filepath',
         type=str,
-        default='/Users/jzlu/Dropbox/data_hdqi/Stephen_in/',
+        default='/Users/jzlu/Dropbox/data_hdqi/gibbs6/',
         help="Filepath with cham files"
     )
     
     args = parser.parse_args()
-    file_list = list_cham_files(args.filepath)
 
-    filepath = file_list[args.slurm_idx]
-    n, m, k = parse_cham_filename(filepath)
-    print(f"Optimizing {filepath} (n={n}, m={m}, k={k}) for {args.trials} trials.")
+    n, m, k = idx2params(args.slurm_idx)
+    files = list_cham_files(args.filepath, n, m, k)
+    # print(files)
+    num_codes = len(files)
+    sat_fracs = np.zeros((num_codes, args.trials))
 
-    start_time = time.time()
-    hamiltonian, n_qubits = parse_hamiltonian(filepath)
-    parsing_time = time.time() - start_time
-    print(f"Parsed Hamiltonian with {len(hamiltonian)} terms on {n_qubits} qubits in {parsing_time:.2f}s.")
+    print(f"Optimizing (n={n}, m={m}, k={k}) for {num_codes} code samples, {args.trials} trial(s) each.")
 
-    sat_fracs = np.zeros(args.trials)
-
-    for trial in range(args.trials):
+    for j, filepath in enumerate(files):
         start_time = time.time()
-        energy = simulated_annealing_search(
-            hamiltonian,
-            n_qubits,
-            max_sweeps=args.max_sweeps,
-            initial_beta=args.initial_beta,
-            beta_step=args.beta_step
-        )
-        search_time = time.time() - start_time
-        minutes = int(search_time // 60)
-        seconds = int(search_time % 60)
-        sat_fracs[trial] = calculate_sat_frac(len(hamiltonian), energy)
-        print(f"[{trial+1}] Satisfied {round(sat_fracs[trial] * 100, 2)}% in {minutes}m {seconds}s.")
-    
-    np.save(f"CSA_{n}_{m}_{k}.npy", sat_fracs)
+        hamiltonian, n_qubits = parse_hamiltonian(filepath)
+        parsing_time = time.time() - start_time
+        print(f"Parsed Hamiltonian at {filepath} with {len(hamiltonian)} terms on {n_qubits} qubits in {parsing_time:.2f}s.")
+
+        for trial in range(args.trials):
+            start_time = time.time()
+            energy = simulated_annealing_search(
+                hamiltonian,
+                n_qubits,
+                max_sweeps=args.max_sweeps,
+                initial_beta=args.initial_beta,
+                beta_step=args.beta_step
+            )
+            search_time = time.time() - start_time
+            minutes = int(search_time // 60)
+            seconds = int(search_time % 60)
+            sat_fracs[j, trial] = calculate_sat_frac(len(hamiltonian), energy)
+            print(f"[Code {j+1}; trial {trial+1}] Satisfied {round(sat_fracs[j,trial] * 100, 2)}% in {minutes:.2f}m {seconds:.2f}s.")
+        
+    outfile = f"CSA_{n}_{m}_{k}.npy"
+    np.save(outfile, sat_fracs)
+    print(f"Saved {outfile}.")
     
 
 if __name__ == '__main__':
