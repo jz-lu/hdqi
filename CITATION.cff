@@ -1,0 +1,38 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: HDQI
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Alexander
+    family-names: Schmidhuber
+    affiliation: 'MIT, Google'
+    email: alexsc@mit.edu
+  - given-names: Jonathan Z.
+    family-names: Lu
+    email: lujz@mit.edu
+    affiliation: MIT
+    orcid: 'https://orcid.org/0000-0002-2806-8248'
+  - given-names: Noah
+    family-names: Shutty
+    email: shutty@google.com
+    affiliation: Google
+  - given-names: Stephen
+    family-names: Jordan
+    email: stephenjordan@google.com
+    affiliation: Google
+  - given-names: Alexander
+    family-names: Poremba
+    email: poremba@bu.edu
+    affiliation: Boston University
+  - given-names: Yihui
+    family-names: Quek
+    email: yihui.quek@epfl.ch
+    affiliation: EPFL
+abstract: >-
+  Numerical analysis related to Hamiltonian Decoded Quantum
+  Interferometry.
