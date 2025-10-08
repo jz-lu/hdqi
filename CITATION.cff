@@ -36,4 +36,4 @@ authors:
 abstract: >-
   Numerical analysis related to Hamiltonian Decoded Quantum
   Interferometry.
-repository-code: 'https://github.com/jz-lu/daqml'
+repository-code: 'https://github.com/jz-lu/hdqi'
