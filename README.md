@@ -5,10 +5,11 @@ There are two major parts: construction of instances and algorithms for optimiza
 
 # Construction
 
-We consider two types of Pauli Hamiltonian (i.e. sum of signed Pauli strings) instances. The first is commuting Hamiltonians, and the second is "almost commuting" Hamiltoninans, for an appropriate definition of almost commuting. These are organized in the files `commuting.py` and `almost.py`. In addition, `helper.py` contains generic helper functions related to Pauli and symplectic algebras.
+We consider two types of Pauli Hamiltonian (i.e. sum of signed Pauli strings) instances. The first is commuting Hamiltonians, and the second is "almost commuting" Hamiltoninans, for an appropriate definition of almost commuting. 
+However, for numerical analysis, the only model we consider is the random local commuting Hamiltonian.
 
 ## How to sample some instances
-If you wish to sample some instances, the basic way to do it is to specify some parameters in either `commuting.py` or `almost.py` and then tell the file to save your data to some directory. The data will be saved as a `numpy` array whose dimension is described below.
+If you wish to sample some instances, the basic way to do it is to specify some parameters in `generate_commuting.py`  and then tell the file to save your data to some directory. The data will be saved as a `numpy` array whose dimension is described below.
 
 The parameters of choice are as follows:
 * `n`: number of qubits
@@ -17,6 +18,7 @@ The parameters of choice are as follows:
 * `trials`: number of instances you would like to generate
 
 In addition, there may be different sampling algorithms you wish to implement. You have the option to choose between them when you call the function. The specifics of this, alongside examples, are given below for each file. 
+Note that `generate_commuting.py` is *extremely slow* for *k* even slightly large, e.g. 6. 
 
 ### Commuting
 There are 4 types of sampling algorithms you might want. All of them sample some kind of local commuting Hamiltonian via rejection sampling, i.e. keep drawing the next Pauli until it commutes with the previous Paulis, then add it to the list.
@@ -26,29 +28,12 @@ There are 4 types of sampling algorithms you might want. All of them sample some
 3. Type 3: Random k-sparse symplectic vectors. Choose a uniformly random weight-k binary vector of length 2n. There is not really a natural/physical corresponding model.
 4. Type 4: X first, then Z. Choose `m1` k-local Pauli X strings randomly. Then choose `m2` k-local Pauli Z strings randomly, subject to them commuting with the X strings. This also lacks a natural physical interpretation. *Warning*: do not use this type with `m1 >> n`. If you do this, then with high probability the X's will form an independent basis of all X-type strings, and there will not exist any Z-type string which commutes with them. 
 
-In general, use Type 1 or Type 2 unless you feel a strong reason to work with a strange model. 
-Some careful mathematical analysis shows that rejection sampling terminates quickly for Type 1 and Type 2, with high probability. 
-The number of trials needed to find the next Pauli string scales as `O(exp(k^2 * m / n))` for Type 1 and the same, but with `k -> 2k` on Type 2. 
-Therefore, if `k` is very small and `m` is a small linear function of `n`, then the scaling is a large but manageable constant. 
-In general, we recommend setting `2 <= k <= 6` for Type 1 and `2 <= k <= 4` for Type 2 (since the actual weight is doubled) if you want to finish very quickly. 
-If you use larger compute resources, you can probably get `k` to be a little bit larger, but the scaling is very bad in terms of `k`.
-Wisdom from the Gilbert-Varshamov bound suggests that to have linear distance while maintaining linear rate, one should set the rate to be a small constant certainly no larger than 1/2.
-So we recommend setting `m = c*n` where `c` is a constant satisfying `1 < c < 2`. 
-(Note that the rate is given by (c-1)/c.)
-
-**Remark**: Sometimes we say "number of trials" in reference to the number of rejections before we successfully get the next commuting Pauli. Other times, we mean the number of Hamiltonians we want to sample. 
-We rely on context to tell the difference, e.g. the latter is a parameter that the user sets.
-
 By default, the code will save a plot of how many tries it took to get each new column, averaged over the trials. If you wish not to have this plot, the command-line flag `--noplot` will do the trick.
 
 To save the instances to a directory, include the command-line flag `--save <DIRECTORY>`. By default, the instances will be saved to the current working directory. The saved file is of the form `Commuting_TYPE<TYPE>_m<m>n<n>k<k>_t<num_trials>.npz`, which you can load using `np.load()`. The array has shape `(num_trials, 2*n, m)` where for each trial we save a `2n x m` parity check matrix constructed. The columns are symplectic representations of the Paulis. If for some reason you don't 
 want to save the data, use the flag `--nosave`.
 
 Example: `python commuting.py --type 1 -m 150 -n 100 -k 4 --trials 75 --save .`
-
-### Almost Commuting
-
-**TBD**
 
 
 ## Scaling tests
@@ -70,13 +55,15 @@ The scaling data saved has shape `(num_ns, 2, num_trials)`. The second dimension
 We next discuss algorithms to attack the Hamiltonian optimization problems. To use it, first generate instances.
 
 The attacks include:
-1. Hamiltonian DQI using belief propagation (hDQI+BP) decoding
-2. Simulated annealing
-3. **TODO**: add all the attacks we use
+1. Hamiltonian DQI using belief propagation (hDQI+BP) decoding. BP is implemented in a separate code repository.
+2. Simulated annealing (SA). See the folder `Vanilla_SA`
+3. Clifford SA. See `CliffordSA.py`. 
 
 
 
 # Dependencies
 * `numpy`
 * `matplotlib`
-* **TODO**: add rest of dependencies
+* `stim`
+* `argparse`
+* `re`
