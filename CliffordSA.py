@@ -11,9 +11,6 @@ import numpy as np
 import time
 import argparse
 import glob
-# import subprocess
-# import sys
-# subprocess.check_call([sys.executable, "-m", "pip", "install", "stim"])
 import stim
 
 def list_cham_files(dirpath, n, m, k):
